@@ -1,0 +1,459 @@
+openapi: 3.1.0
+info:
+  title: PokeGuess API
+  version: 1.0.0
+  description: |
+    HTTP API for the PokeGuess multiplayer guessing game.
+
+    ## WebSocket
+
+    Real-time events (connection registration and chat delivery) use WebSocket at `ws://localhost:3000/ws`.
+
+    ### Register connection (server assigns connectionId)
+    ```json
+    { "action": "register", "roomCode": "4Q2JD6", "displayName": "Chris" }
+    ```
+
+    ### Registered response
+    ```json
+    { "action": "registered", "connectionId": "...", "roomCode": "4Q2JD6", "displayName": "Chris", "isHost": true, "room": {} }
+    ```
+
+    ### Incoming chat message (pushed to opponent)
+    ```json
+    {
+      "action": "chatMessage",
+      "roomCode": "4Q2JD6",
+      "fromConnectionId": "...",
+      "fromDisplayName": "Chris",
+      "message": "Is it a fire type?",
+      "sentAt": "2026-07-02T20:05:00.000Z"
+    }
+    ```
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: Health
+    description: Service health checks
+  - name: Game
+    description: Game room and match actions
+
+paths:
+  /heartbeat:
+    get:
+      tags: [Health]
+      summary: Heartbeat check
+      operationId: getHeartbeat
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /game/createRoom:
+    post:
+      tags: [Game]
+      summary: Create a room and add Player 1
+      operationId: createRoom
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoomRequest"
+      responses:
+        "201":
+          description: Room created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [roomCode, room]
+                properties:
+                  roomCode:
+                    type: string
+                  room:
+                    $ref: "#/components/schemas/GameRoom"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /game/joinRoom:
+    post:
+      tags: [Game]
+      summary: Add Player 2 to an existing room
+      operationId: joinRoom
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinRoomRequest"
+      responses:
+        "200":
+          description: Player joined
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [room]
+                properties:
+                  room:
+                    $ref: "#/components/schemas/GameRoom"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /game/readyUp:
+    post:
+      tags: [Game]
+      summary: Mark player as ready
+      operationId: readyUp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectionActionRequest"
+      responses:
+        "200":
+          description: Player ready
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [room]
+                properties:
+                  room:
+                    $ref: "#/components/schemas/GameRoom"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /game/startGame:
+    post:
+      tags: [Game]
+      summary: Start the game (host only)
+      operationId: startGame
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectionActionRequest"
+      responses:
+        "200":
+          description: Game started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [room]
+                properties:
+                  room:
+                    $ref: "#/components/schemas/GameRoom"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /game/sendChatMessage:
+    post:
+      tags: [Game]
+      summary: Send a live chat message
+      description: |
+        Relays a chat message to the opponent over WebSocket. Messages are not stored in DynamoDB.
+        Chat is only available when the room status is ACTIVE.
+      operationId: sendChatMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendChatMessageRequest"
+      responses:
+        "200":
+          description: Message relayed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendChatMessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /game/endTurn:
+    post:
+      tags: [Game]
+      summary: End the current turn
+      operationId: endTurn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameActionRequest"
+      responses:
+        "200":
+          description: Turn ended
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+  /game/makeGuess:
+    post:
+      tags: [Game]
+      summary: Submit a Pokémon guess
+      operationId: makeGuess
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MakeGuessRequest"
+      responses:
+        "200":
+          description: Guess submitted
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+  /game/forfeitGame:
+    post:
+      tags: [Game]
+      summary: Forfeit the match
+      operationId: forfeitGame
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameActionRequest"
+      responses:
+        "200":
+          description: Game forfeited
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+  /game/leaveRoom:
+    post:
+      tags: [Game]
+      summary: Leave the room
+      operationId: leaveRoom
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameActionRequest"
+      responses:
+        "200":
+          description: Player left
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+  /game/requestRematch:
+    post:
+      tags: [Game]
+      summary: Request a rematch
+      operationId: requestRematch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameActionRequest"
+      responses:
+        "200":
+          description: Rematch requested
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+components:
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: Room not found
+
+    ConnectionActionRequest:
+      type: object
+      required: [connectionId]
+      properties:
+        connectionId:
+          type: string
+          description: Server-assigned ID from WebSocket register
+
+    GameActionRequest:
+      type: object
+      required: [connectionId]
+      properties:
+        connectionId:
+          type: string
+
+    CreateRoomRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          example: Chris
+
+    JoinRoomRequest:
+      type: object
+      required: [roomCode, displayName]
+      properties:
+        roomCode:
+          type: string
+          example: 4Q2JD6
+        displayName:
+          type: string
+          example: Alex
+
+    MakeGuessRequest:
+      type: object
+      required: [roomCode, guestId, pokemonId]
+      properties:
+        roomCode:
+          type: string
+          example: FOX-742
+        guestId:
+          type: string
+          example: guest-a1b2c3
+        pokemonId:
+          type: integer
+          example: 25
+
+    SendChatMessageRequest:
+      type: object
+      required: [connectionId, message]
+      properties:
+        connectionId:
+          type: string
+        message:
+          type: string
+          maxLength: 500
+          example: Is it a fire type?
+
+    SendChatMessageResponse:
+      type: object
+      required: [ok, sentAt]
+      properties:
+        ok:
+          type: boolean
+          example: true
+        sentAt:
+          type: string
+          format: date-time
+          example: "2026-07-02T20:05:00.000Z"
+
+    RoomStatus:
+      type: string
+      enum: [WAITING, ACTIVE, FINISHED, FORFEITED]
+
+    TurnPlayer:
+      type: string
+      enum: [player1, player2]
+
+    RoomPlayer:
+      type: object
+      required:
+        - displayName
+        - connectionId
+        - secretPokemonId
+        - connected
+        - ready
+      properties:
+        displayName:
+          type: string
+        connectionId:
+          type: string
+        secretPokemonId:
+          type: integer
+        connected:
+          type: boolean
+        ready:
+          type: boolean
+
+    GameRoom:
+      type: object
+      required: [roomCode, status, players, createdAt, updatedAt, expiresAt]
+      properties:
+        roomCode:
+          type: string
+          example: FOX-742
+        status:
+          $ref: "#/components/schemas/RoomStatus"
+        players:
+          type: object
+          properties:
+            player1:
+              $ref: "#/components/schemas/RoomPlayer"
+            player2:
+              $ref: "#/components/schemas/RoomPlayer"
+        currentTurnPlayer:
+          $ref: "#/components/schemas/TurnPlayer"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: integer
+          description: Unix timestamp for DynamoDB TTL
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Player not authorized for this action
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: Action cannot be completed in the current state
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotImplemented:
+      description: Endpoint not implemented yet
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
