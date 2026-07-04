@@ -5,6 +5,9 @@ info:
   description: |
     HTTP API for the PokeGuess multiplayer guessing game.
 
+    Pokémon species data is served from a local cache (`data/pokemon.json`),
+    built once via `npm run pokemon:build`. Gameplay never calls PokéAPI.
+
     ## WebSocket
 
     Real-time events (connection registration and chat delivery) use WebSocket at `ws://localhost:3000/ws`.
@@ -38,6 +41,8 @@ servers:
 tags:
   - name: Health
     description: Service health checks
+  - name: Pokemon
+    description: Local Pokémon species cache (no PokéAPI at runtime)
   - name: Game
     description: Game room and match actions
 
@@ -59,6 +64,67 @@ paths:
                   status:
                     type: string
                     example: ok
+
+  /pokemon:
+    get:
+      tags: [Pokemon]
+      summary: List all cached Pokémon
+      description: Returns the full local species cache (id, name, sprite, types, abilities).
+      operationId: listPokemon
+      responses:
+        "200":
+          description: Full Pokémon list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pokemon]
+                properties:
+                  pokemon:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CachedPokemon"
+        "503":
+          description: Local cache missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /pokemon/{id}:
+    get:
+      tags: [Pokemon]
+      summary: Get a cached Pokémon by national dex id
+      operationId: getPokemon
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            example: 25
+      responses:
+        "200":
+          description: Pokémon found
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pokemon]
+                properties:
+                  pokemon:
+                    $ref: "#/components/schemas/CachedPokemon"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: Local cache missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /game/createRoom:
     post:
@@ -313,6 +379,31 @@ components:
       properties:
         connectionId:
           type: string
+
+    CachedPokemon:
+      type: object
+      required: [id, name, sprite, types, abilities]
+      properties:
+        id:
+          type: integer
+          example: 25
+        name:
+          type: string
+          example: pikachu
+        sprite:
+          type: string
+          format: uri
+          example: https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png
+        types:
+          type: array
+          items:
+            type: string
+          example: [electric]
+        abilities:
+          type: array
+          items:
+            type: string
+          example: [static, lightning-rod]
 
     CreateRoomRequest:
       type: object

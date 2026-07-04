@@ -12,7 +12,8 @@
     "format:check": "prettier --check .",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "db:setup": "tsx src/db/setup.ts"
+    "db:setup": "tsx src/db/setup.ts",
+    "pokemon:build": "tsx scripts/build-pokemon-cache.ts"
   },
   "keywords": [],
   "author": "",

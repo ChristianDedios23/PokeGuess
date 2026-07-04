@@ -9,8 +9,9 @@ import { logger } from "./middleware/logger";
 const app = express();
 
 const corsOrigins =
-  process.env.CORS_ORIGINS?.split(",").map((o) => o.trim()).filter(Boolean) ??
-  (process.env.NODE_ENV !== "production" ? ["http://localhost:3001"] : []);
+  process.env.CORS_ORIGINS?.split(",")
+    .map((o) => o.trim())
+    .filter(Boolean) ?? (process.env.NODE_ENV !== "production" ? ["http://localhost:3001"] : []);
 
 // Application-level middleware
 app.use(

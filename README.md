@@ -16,6 +16,7 @@ cp .env.example .env
 npm install
 npm run db:up
 npm run db:setup
+npm run pokemon:build   # one-time PokéAPI → data/pokemon.json (no API calls at runtime)
 npm run dev
 
 # Frontend (separate terminal)
@@ -27,6 +28,18 @@ npm run dev
 - App: http://localhost:3001
 - API: http://localhost:3000
 - API docs: http://localhost:3000/api-docs
+
+## Pokémon data
+
+Species data is prebuilt into `backend/data/pokemon.json` (id, name, sprite, types, abilities). Runtime uses only that file — never PokéAPI.
+
+```bash
+cd backend
+npm run pokemon:build   # refresh cache (rare)
+```
+
+- `GET /pokemon` — full list
+- `GET /pokemon/:id` — one species
 
 ## Flow
 
