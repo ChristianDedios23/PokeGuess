@@ -1,0 +1,9 @@
+import { GameError } from "../types/errors";
+import { readyUpPlayer } from "../services/roomService";
+import type { HandlerContext } from "./types";
+
+export async function handleReadyUp(ctx: HandlerContext): Promise<void> {
+  if (!ctx.connectionId) throw new GameError(403, "Not connected");
+
+  await readyUpPlayer(ctx.connectionId);
+}

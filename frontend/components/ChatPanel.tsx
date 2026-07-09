@@ -2,7 +2,6 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "@/lib/game";
-import { sendChatMessage } from "@/lib/game";
 
 interface ChatPanelProps {
   connectionId: string | null;
@@ -11,6 +10,7 @@ interface ChatPanelProps {
   enabled: boolean;
   incomingMessage: ChatMessage | null;
   sentConfirmation: { message: string; sentAt: string } | null;
+  onSendMessage: (message: string) => void;
 }
 
 export function ChatPanel({
@@ -20,6 +20,7 @@ export function ChatPanel({
   enabled,
   incomingMessage,
   sentConfirmation,
+  onSendMessage,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -58,7 +59,7 @@ export function ChatPanel({
     });
   }, [selfConnectionId, selfDisplayName, sentConfirmation]);
 
-  async function handleSend(event: FormEvent) {
+  function handleSend(event: FormEvent) {
     event.preventDefault();
     const text = draft.trim();
     if (!text || !connectionId || !enabled) return;
@@ -66,7 +67,7 @@ export function ChatPanel({
     setSending(true);
     setError(null);
     try {
-      await sendChatMessage(connectionId, text);
+      onSendMessage(text);
       setDraft("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send message");

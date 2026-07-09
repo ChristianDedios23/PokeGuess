@@ -6,7 +6,7 @@ import { ChatPanel } from "@/components/ChatPanel";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { RoomLobby } from "@/components/RoomLobby";
 import type { ChatMessage, GameRoom } from "@/lib/game";
-import { joinRoom, readyUp, startGame } from "@/lib/game";
+import { joinRoom } from "@/lib/game";
 import { getSession, saveSession, type PlayerSession } from "@/lib/session";
 import { useRoomSocket } from "@/lib/useRoomSocket";
 
@@ -67,7 +67,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     setSentConfirmation(payload);
   }, []);
 
-  const { status, connectionId, error: socketError, reconnect } = useRoomSocket({
+  const { status, connectionId, error: socketError, reconnect, send } = useRoomSocket({
     roomCode,
     displayName,
     enabled: hasSession,
@@ -91,10 +91,9 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     setError(null);
 
     try {
-      const { room: joinedRoom } = await joinRoom(roomCode, name);
+      await joinRoom(roomCode, name);
       saveSession({ roomCode, displayName: name, isHost: false });
       setSession(getSession());
-      setRoom(joinedRoom);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to join room");
     } finally {
@@ -102,13 +101,12 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     }
   }
 
-  async function handleReady() {
+  function handleReady() {
     if (!connectionId) return;
     setLoading(true);
     setError(null);
     try {
-      const { room: updatedRoom } = await readyUp(connectionId);
-      setRoom(updatedRoom);
+      send({ action: "readyUp" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to ready up");
     } finally {
@@ -116,13 +114,12 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     }
   }
 
-  async function handleStart() {
+  function handleStart() {
     if (!connectionId) return;
     setLoading(true);
     setError(null);
     try {
-      const { room: updatedRoom } = await startGame(connectionId);
-      setRoom(updatedRoom);
+      send({ action: "startGame" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start game");
     } finally {
@@ -238,6 +235,9 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
           enabled={gameActive}
           incomingMessage={incomingChat}
           sentConfirmation={sentConfirmation}
+          onSendMessage={(message) => {
+            send({ action: "sendChatMessage", message });
+          }}
         />
       )}
 

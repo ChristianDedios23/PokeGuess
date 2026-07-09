@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { WS_URL } from "@/lib/config";
-import type { GameRoom, WsPayload } from "@/lib/game";
+import type { GameRoom, WsAction, WsPayload } from "@/lib/game";
 import { updateSessionConnectionId } from "@/lib/session";
 
 type ConnectionStatus = "idle" | "connecting" | "connected" | "error";
@@ -43,6 +43,14 @@ export function useRoomSocket({
     onChatMessage,
     onChatMessageSent,
   };
+
+  const send = useCallback((action: WsAction) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      throw new Error("Not connected");
+    }
+    ws.send(JSON.stringify(action));
+  }, []);
 
   const connect = useCallback(() => {
     if (!enabled || !roomCode || !displayName) return;
@@ -113,5 +121,5 @@ export function useRoomSocket({
     };
   }, [connect]);
 
-  return { status, connectionId, error, reconnect: connect };
+  return { status, connectionId, error, reconnect: connect, send };
 }
