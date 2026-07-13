@@ -1,6 +1,11 @@
-import { API_BASE } from "./config";
+import { wsRequest } from "./wsClient";
 
 export type RoomStatus = "WAITING" | "ACTIVE" | "FINISHED" | "FORFEITED";
+
+export interface PlayerGuess {
+  pokemonId: number;
+  correct: boolean;
+}
 
 export interface RoomPlayer {
   connectionId: string;
@@ -8,16 +13,19 @@ export interface RoomPlayer {
   secretPokemonId: number;
   connected: boolean;
   ready: boolean;
+  guess?: PlayerGuess;
 }
 
 export interface GameRoom {
   roomCode: string;
   status: RoomStatus;
+  board: number[];
   players: {
     player1?: RoomPlayer;
     player2?: RoomPlayer;
   };
   currentTurnPlayer?: "player1" | "player2";
+  winner?: "player1" | "player2";
   createdAt: string;
   updatedAt: string;
   expiresAt: number;
@@ -29,6 +37,24 @@ export interface ChatMessage {
   text: string;
   sentAt: string;
   isSelf: boolean;
+}
+
+export interface WsRoomCreated {
+  action: "roomCreated";
+  connectionId: string;
+  roomCode: string;
+  isHost: boolean;
+  playerToken: string;
+  room: GameRoom;
+}
+
+export interface WsJoined {
+  action: "joined";
+  connectionId: string;
+  roomCode: string;
+  isHost: boolean;
+  playerToken: string;
+  room: GameRoom;
 }
 
 export interface WsRegistered {
@@ -55,6 +81,13 @@ export interface WsGameStarted {
   room: GameRoom;
 }
 
+export interface WsGameOver {
+  action: "gameOver";
+  room: GameRoom;
+  forfeitedBy?: "player1" | "player2";
+  reason?: "forfeit" | "disconnect_timeout";
+}
+
 export interface WsChatMessage {
   action: "chatMessage";
   roomCode: string;
@@ -78,48 +111,30 @@ export interface WsError {
 }
 
 export type WsPayload =
+  | WsRoomCreated
+  | WsJoined
   | WsRegistered
   | WsRoomUpdated
   | WsPlayerJoined
   | WsGameStarted
+  | WsGameOver
   | WsChatMessage
   | WsChatMessageSent
   | WsError;
 
-async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error ?? "Request failed");
-  }
-
-  return data as T;
-}
+export type WsAction = Record<string, unknown> & { action: string };
 
 export async function createRoom(displayName: string) {
-  return apiPost<{ roomCode: string; room: GameRoom }>("/game/createRoom", { displayName });
+  const data = await wsRequest<WsRoomCreated>("createRoom", { displayName });
+  return {
+    roomCode: data.roomCode,
+    room: data.room,
+    connectionId: data.connectionId,
+    playerToken: data.playerToken,
+  };
 }
 
 export async function joinRoom(roomCode: string, displayName: string) {
-  return apiPost<{ room: GameRoom }>("/game/joinRoom", { roomCode, displayName });
-}
-
-export async function readyUp(connectionId: string) {
-  return apiPost<{ room: GameRoom }>("/game/readyUp", { connectionId });
-}
-
-export async function startGame(connectionId: string) {
-  return apiPost<{ room: GameRoom }>("/game/startGame", { connectionId });
-}
-
-export async function sendChatMessage(connectionId: string, message: string) {
-  return apiPost<{ ok: boolean; sentAt: string }>("/game/sendChatMessage", {
-    connectionId,
-    message,
-  });
+  const data = await wsRequest<WsJoined>("joinRoom", { roomCode, displayName });
+  return { room: data.room, connectionId: data.connectionId, playerToken: data.playerToken };
 }

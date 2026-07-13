@@ -3,10 +3,12 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatPanel } from "@/components/ChatPanel";
+import { GameOverBanner } from "@/components/GameOverBanner";
+import { GuessBoard } from "@/components/GuessBoard";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { RoomLobby } from "@/components/RoomLobby";
-import type { ChatMessage, GameRoom } from "@/lib/game";
-import { joinRoom, readyUp, startGame } from "@/lib/game";
+import type { ChatMessage, GameRoom, WsGameOver } from "@/lib/game";
+import { joinRoom } from "@/lib/game";
 import { getSession, saveSession, type PlayerSession } from "@/lib/session";
 import { useRoomSocket } from "@/lib/useRoomSocket";
 
@@ -27,10 +29,14 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     message: string;
     sentAt: string;
   } | null>(null);
+  const [gameOver, setGameOver] = useState<WsGameOver | null>(null);
+  const [confirmingForfeit, setConfirmingForfeit] = useState(false);
 
   const hasSession = mounted && session?.roomCode === roomCode;
   const displayName = hasSession ? session!.displayName : "";
   const isHost = hasSession ? session!.isHost : false;
+  const playerToken = hasSession ? session!.playerToken : undefined;
+  const selfSlot: "player1" | "player2" = isHost ? "player1" : "player2";
 
   const inviteUrl = useMemo(() => {
     if (typeof window === "undefined") return `/room/${roomCode}`;
@@ -42,7 +48,13 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   }, []);
 
   const handleGameStarted = useCallback((nextRoom: GameRoom) => {
+    setGameOver(null);
     setRoom(nextRoom);
+  }, []);
+
+  const handleGameOver = useCallback((payload: WsGameOver) => {
+    setRoom(payload.room);
+    setGameOver(payload);
   }, []);
 
   const handleChatMessage = useCallback(
@@ -67,18 +79,20 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     setSentConfirmation(payload);
   }, []);
 
-  const { status, connectionId, error: socketError, reconnect } = useRoomSocket({
+  const { status, connectionId, error: socketError, reconnect, send } = useRoomSocket({
     roomCode,
     displayName,
+    playerToken,
     enabled: hasSession,
     onRoomUpdate: handleRoomUpdate,
     onGameStarted: handleGameStarted,
+    onGameOver: handleGameOver,
     onChatMessage: handleChatMessage,
     onChatMessageSent: handleChatMessageSent,
   });
 
   useEffect(() => {
-    setSession(getSession());
+    setSession(getSession(roomCode));
     setMounted(true);
   }, [roomCode]);
 
@@ -91,10 +105,9 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     setError(null);
 
     try {
-      const { room: joinedRoom } = await joinRoom(roomCode, name);
-      saveSession({ roomCode, displayName: name, isHost: false });
-      setSession(getSession());
-      setRoom(joinedRoom);
+      const { playerToken: token } = await joinRoom(roomCode, name);
+      saveSession({ roomCode, displayName: name, isHost: false, playerToken: token });
+      setSession(getSession(roomCode));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to join room");
     } finally {
@@ -102,13 +115,12 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     }
   }
 
-  async function handleReady() {
+  function handleReady() {
     if (!connectionId) return;
     setLoading(true);
     setError(null);
     try {
-      const { room: updatedRoom } = await readyUp(connectionId);
-      setRoom(updatedRoom);
+      send({ action: "readyUp" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to ready up");
     } finally {
@@ -116,13 +128,12 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     }
   }
 
-  async function handleStart() {
+  function handleStart() {
     if (!connectionId) return;
     setLoading(true);
     setError(null);
     try {
-      const { room: updatedRoom } = await startGame(connectionId);
-      setRoom(updatedRoom);
+      send({ action: "startGame" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start game");
     } finally {
@@ -130,7 +141,45 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     }
   }
 
+  function handleGuess(pokemonId: number) {
+    if (!connectionId || hasGuessed) return;
+    setError(null);
+    try {
+      send({ action: "makeGuess", pokemonId });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to submit guess");
+    }
+  }
+
+  function handleForfeit() {
+    if (!connectionId) return;
+    if (!confirmingForfeit) {
+      setConfirmingForfeit(true);
+      return;
+    }
+    setError(null);
+    try {
+      send({ action: "forfeitGame" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to forfeit");
+    } finally {
+      setConfirmingForfeit(false);
+    }
+  }
+
+  function handleLeave() {
+    try {
+      send({ action: "leaveRoom" });
+    } catch {
+      // Not connected — nothing to notify the server about.
+    }
+    router.push("/");
+  }
+
   const gameActive = room?.status === "ACTIVE";
+  const gameEnded = room?.status === "FINISHED" || room?.status === "FORFEITED";
+  const ownSecretPokemonId = room?.players[selfSlot]?.secretPokemonId;
+  const hasGuessed = Boolean(room?.players[selfSlot]?.guess);
 
   if (!mounted) {
     return (
@@ -143,36 +192,42 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   if (!hasSession) {
     return (
       <div className="mx-auto w-full max-w-md space-y-4 p-6">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-semibold">Join room {roomCode}</h1>
+        <div className="space-y-2 text-center">
+          <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase">
+            Room {roomCode}
+          </p>
+          <h1 className="text-2xl font-bold">Join the game</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Enter your name to join this game.
+            Enter your name to join this room.
           </p>
         </div>
 
         {loading ? (
-          <div className="rounded-xl border border-zinc-200 p-8 dark:border-zinc-800">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
             <LoadingSpinner label="Joining room..." />
           </div>
         ) : (
-          <form onSubmit={handleJoin} className="space-y-4">
-            <label className="grid gap-2 text-sm">
+          <form
+            onSubmit={handleJoin}
+            className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            <label className="grid gap-2 text-sm font-medium">
               Your name
               <input
                 value={joinName}
                 onChange={(e) => setJoinName(e.target.value)}
                 placeholder="Enter your display name"
                 maxLength={24}
-                className="rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950"
+                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-normal transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950"
               />
             </label>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <button
               type="submit"
               disabled={loading || !joinName.trim()}
-              className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="w-full rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50 disabled:hover:bg-red-600"
             >
               Join Room
             </button>
@@ -182,24 +237,67 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
         <button
           type="button"
           onClick={() => router.push("/")}
-          className="text-sm text-zinc-600 underline dark:text-zinc-400"
+          className="mx-auto block text-sm text-zinc-600 underline underline-offset-2 dark:text-zinc-400"
         >
-          Create your own room
+          Create your own room instead
         </button>
       </div>
     );
   }
 
+  const statusDotColor =
+    status === "connected"
+      ? "bg-green-500"
+      : status === "connecting"
+        ? "bg-amber-500"
+        : status === "error"
+          ? "bg-red-500"
+          : "bg-zinc-400";
+
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Room {roomCode}</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Playing as {displayName}
-          {isHost ? " (Host)" : ""}
-          {" · "}
-          {status === "connected" ? "Connected" : status === "connecting" ? "Connecting…" : "Offline"}
-        </p>
+    <div
+      className={`mx-auto flex w-full flex-col gap-6 p-6 ${gameActive ? "max-w-4xl" : "max-w-2xl"}`}
+    >
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold">Room {roomCode}</h1>
+          <p className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
+            <span
+              aria-hidden="true"
+              className={`h-2 w-2 rounded-full ${statusDotColor}`}
+            />
+            Playing as {displayName}
+            {isHost ? " (Host)" : ""}
+            {" · "}
+            {status === "connected"
+              ? "Connected"
+              : status === "connecting"
+                ? "Connecting…"
+                : "Offline"}
+          </p>
+        </div>
+
+        <div className="flex gap-2">
+          {gameActive && (
+            <button
+              type="button"
+              onClick={handleForfeit}
+              disabled={!connectionId}
+              className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950"
+            >
+              {confirmingForfeit ? "Confirm forfeit?" : "Forfeit"}
+            </button>
+          )}
+          {!gameEnded && (
+            <button
+              type="button"
+              onClick={handleLeave}
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              Leave game
+            </button>
+          )}
+        </div>
       </header>
 
       {(error || socketError) && (
@@ -212,13 +310,13 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
         <button
           type="button"
           onClick={reconnect}
-          className="self-start rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700"
+          className="self-start rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
         >
           Reconnect
         </button>
       )}
 
-      {room && !gameActive && (
+      {room && room.status === "WAITING" && (
         <RoomLobby
           room={room}
           isHost={isHost}
@@ -231,18 +329,42 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
       )}
 
       {room && gameActive && (
-        <ChatPanel
-          connectionId={connectionId}
-          selfDisplayName={displayName}
-          selfConnectionId={connectionId}
-          enabled={gameActive}
-          incomingMessage={incomingChat}
-          sentConfirmation={sentConfirmation}
-        />
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-3">
+            {hasGuessed && (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                You&apos;ve made your guess. Waiting for your opponent to make theirs…
+              </p>
+            )}
+            <GuessBoard
+              roomCode={roomCode}
+              selfSlot={selfSlot}
+              board={room.board}
+              ownSecretPokemonId={ownSecretPokemonId}
+              disabled={!connectionId || hasGuessed}
+              onGuess={handleGuess}
+            />
+          </div>
+          <ChatPanel
+            connectionId={connectionId}
+            selfDisplayName={displayName}
+            selfConnectionId={connectionId}
+            enabled={gameActive}
+            incomingMessage={incomingChat}
+            sentConfirmation={sentConfirmation}
+            onSendMessage={(message) => {
+              send({ action: "sendChatMessage", message });
+            }}
+          />
+        </div>
+      )}
+
+      {room && gameEnded && (
+        <GameOverBanner room={room} payload={gameOver} selfSlot={selfSlot} />
       )}
 
       {!room && hasSession && (
-        <div className="rounded-xl border border-zinc-200 p-8 dark:border-zinc-800">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <LoadingSpinner label="Connecting to room..." />
         </div>
       )}

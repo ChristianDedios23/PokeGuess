@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { WS_URL } from "@/lib/config";
-import type { GameRoom, WsPayload } from "@/lib/game";
+import type { GameRoom, WsAction, WsGameOver, WsPayload } from "@/lib/game";
 import { updateSessionConnectionId } from "@/lib/session";
 
 type ConnectionStatus = "idle" | "connecting" | "connected" | "error";
@@ -10,9 +10,11 @@ type ConnectionStatus = "idle" | "connecting" | "connected" | "error";
 interface UseRoomSocketOptions {
   roomCode: string;
   displayName: string;
+  playerToken: string | undefined;
   enabled: boolean;
   onRoomUpdate: (room: GameRoom) => void;
   onGameStarted: (room: GameRoom) => void;
+  onGameOver: (payload: WsGameOver) => void;
   onChatMessage: (payload: Extract<WsPayload, { action: "chatMessage" }>) => void;
   onChatMessageSent: (payload: Extract<WsPayload, { action: "chatMessageSent" }>) => void;
 }
@@ -20,9 +22,11 @@ interface UseRoomSocketOptions {
 export function useRoomSocket({
   roomCode,
   displayName,
+  playerToken,
   enabled,
   onRoomUpdate,
   onGameStarted,
+  onGameOver,
   onChatMessage,
   onChatMessageSent,
 }: UseRoomSocketOptions) {
@@ -33,6 +37,7 @@ export function useRoomSocket({
   const callbacksRef = useRef({
     onRoomUpdate,
     onGameStarted,
+    onGameOver,
     onChatMessage,
     onChatMessageSent,
   });
@@ -40,12 +45,21 @@ export function useRoomSocket({
   callbacksRef.current = {
     onRoomUpdate,
     onGameStarted,
+    onGameOver,
     onChatMessage,
     onChatMessageSent,
   };
 
+  const send = useCallback((action: WsAction) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      throw new Error("Not connected");
+    }
+    ws.send(JSON.stringify(action));
+  }, []);
+
   const connect = useCallback(() => {
-    if (!enabled || !roomCode || !displayName) return;
+    if (!enabled || !roomCode || !displayName || !playerToken) return;
 
     wsRef.current?.close();
     setStatus("connecting");
@@ -55,7 +69,7 @@ export function useRoomSocket({
     wsRef.current = ws;
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({ action: "register", roomCode, displayName }));
+      ws.send(JSON.stringify({ action: "register", roomCode, displayName, playerToken }));
     };
 
     ws.onmessage = (event) => {
@@ -63,7 +77,7 @@ export function useRoomSocket({
 
       if (data.action === "registered") {
         setConnectionId(data.connectionId);
-        updateSessionConnectionId(data.connectionId);
+        updateSessionConnectionId(roomCode, data.connectionId);
         setStatus("connected");
         callbacksRef.current.onRoomUpdate(data.room);
         return;
@@ -82,6 +96,11 @@ export function useRoomSocket({
 
       if (data.action === "gameStarted") {
         callbacksRef.current.onGameStarted(data.room);
+        return;
+      }
+
+      if (data.action === "gameOver") {
+        callbacksRef.current.onGameOver(data);
         return;
       }
 
@@ -104,7 +123,7 @@ export function useRoomSocket({
       setStatus((current) => (current === "error" ? current : "idle"));
       setConnectionId(null);
     };
-  }, [displayName, enabled, roomCode]);
+  }, [displayName, enabled, playerToken, roomCode]);
 
   useEffect(() => {
     connect();
@@ -113,5 +132,20 @@ export function useRoomSocket({
     };
   }, [connect]);
 
-  return { status, connectionId, error, reconnect: connect };
+  // Periodically nudges the server to re-check the room while connected.
+  // This is what actually resolves a disconnected opponent's grace period —
+  // the server no longer relies on a live in-process timer for that.
+  useEffect(() => {
+    if (status !== "connected") return;
+    const interval = setInterval(() => {
+      try {
+        send({ action: "ping" });
+      } catch {
+        // Socket likely just closed; the next connect cycle resumes this.
+      }
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [status, send]);
+
+  return { status, connectionId, error, reconnect: connect, send };
 }

@@ -1,38 +1,43 @@
+import { deleteCookie, getCookie, setCookie } from "./cookies";
+
 export interface PlayerSession {
   roomCode: string;
   displayName: string;
   isHost: boolean;
+  playerToken: string;
   connectionId?: string;
 }
 
-const SESSION_KEY = "pokeguess_session";
+// Rooms expire on the server 1 hour after creation — keep the cookie around a
+// little longer than that so it never disappears while the room is still live.
+const SESSION_TTL_SECONDS = 60 * 60 * 2;
 
-export function getSession(): PlayerSession | null {
-  if (typeof window === "undefined") return null;
-  const raw = sessionStorage.getItem(SESSION_KEY);
+function cookieName(roomCode: string): string {
+  return `pokeguess_session_${roomCode.toUpperCase()}`;
+}
+
+export function getSession(roomCode: string): PlayerSession | null {
+  const raw = getCookie(cookieName(roomCode));
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as PlayerSession;
+    const parsed = JSON.parse(raw) as PlayerSession;
+    if (!parsed.playerToken || !parsed.roomCode) return null;
+    return parsed;
   } catch {
     return null;
   }
 }
 
 export function saveSession(session: PlayerSession): void {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  setCookie(cookieName(session.roomCode), JSON.stringify(session), SESSION_TTL_SECONDS);
 }
 
-export function updateSessionConnectionId(connectionId: string): void {
-  const session = getSession();
+export function updateSessionConnectionId(roomCode: string, connectionId: string): void {
+  const session = getSession(roomCode);
   if (!session) return;
   saveSession({ ...session, connectionId });
 }
 
-export function clearSession(): void {
-  sessionStorage.removeItem(SESSION_KEY);
-}
-
-export function sessionMatchesRoom(roomCode: string): boolean {
-  const session = getSession();
-  return session?.roomCode === roomCode;
+export function clearSession(roomCode: string): void {
+  deleteCookie(cookieName(roomCode));
 }

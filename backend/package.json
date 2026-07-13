@@ -4,7 +4,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
@@ -13,6 +13,9 @@
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:setup": "tsx src/db/setup.ts",
+    "test": "jest",
+    "test:unit": "jest --testPathPattern=\"(errors|db\\.health|roomService|heartbeat)\\.test\\.ts\"",
+    "test:integration": "jest --testPathPattern=\"(db\\.rooms|websocket\\.game|app\\.routes)\\.test\\.ts\"",
     "pokemon:build": "tsx scripts/build-pokemon-cache.ts"
   },
   "keywords": [],
@@ -22,22 +25,25 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1079.0",
     "@aws-sdk/lib-dynamodb": "^3.1079.0",
-    "@scalar/express-api-reference": "^0.10.8",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "ws": "^8.21.0",
-    "yaml": "^2.9.0"
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
     "@types/node": "^26.1.0",
+    "@types/supertest": "^7.2.0",
     "@types/ws": "^8.18.1",
     "eslint": "^10.6.0",
     "eslint-config-prettier": "^10.1.8",
+    "jest": "^30.4.2",
     "prettier": "^3.9.4",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.11",
     "tsx": "^4.22.5",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.1"

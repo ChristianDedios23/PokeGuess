@@ -1,6 +1,6 @@
 "use client";
 
-import type { GameRoom } from "@/lib/game";
+import type { GameRoom, RoomPlayer } from "@/lib/game";
 
 interface RoomLobbyProps {
   room: GameRoom;
@@ -10,6 +10,35 @@ interface RoomLobbyProps {
   onReady: () => void;
   onStart: () => void;
   loading: boolean;
+}
+
+function statusChip(player: RoomPlayer | undefined) {
+  if (!player) {
+    return (
+      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800">
+        Waiting…
+      </span>
+    );
+  }
+  if (player.ready) {
+    return (
+      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-300">
+        Ready
+      </span>
+    );
+  }
+  if (player.connected) {
+    return (
+      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+        Connected
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800">
+      Offline
+    </span>
+  );
 }
 
 export function RoomLobby({
@@ -39,33 +68,33 @@ export function RoomLobby({
   }
 
   return (
-    <section className="space-y-4 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <section className="space-y-5 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm text-zinc-500">Room code</p>
-          <p className="text-2xl font-semibold tracking-widest">{room.roomCode}</p>
+          <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase">Room code</p>
+          <p className="text-3xl font-bold tracking-[0.3em] text-red-600 dark:text-red-500">
+            {room.roomCode}
+          </p>
         </div>
         <button
           type="button"
           onClick={copyInviteLink}
-          className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700"
+          className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
         >
           Copy invite link
         </button>
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-medium">Players</p>
+        <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase">Players</p>
         <ul className="space-y-2 text-sm">
-          <li className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-900">
-            <span>{player1?.displayName ?? "Host"} (Host)</span>
-            <span>{player1?.ready ? "Ready" : player1?.connected ? "Connected" : "…"}</span>
+          <li className="flex items-center justify-between rounded-xl bg-zinc-50 px-4 py-3 dark:bg-zinc-800/60">
+            <span className="font-medium">{player1?.displayName ?? "Host"} · Host</span>
+            {statusChip(player1)}
           </li>
-          <li className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-900">
-            <span>{player2?.displayName ?? "Waiting for opponent…"}</span>
-            <span>
-              {player2 ? (player2.ready ? "Ready" : player2.connected ? "Connected" : "…") : "—"}
-            </span>
+          <li className="flex items-center justify-between rounded-xl bg-zinc-50 px-4 py-3 dark:bg-zinc-800/60">
+            <span className="font-medium">{player2?.displayName ?? "Waiting for opponent…"}</span>
+            {statusChip(player2)}
           </li>
         </ul>
       </div>
@@ -75,9 +104,9 @@ export function RoomLobby({
           type="button"
           onClick={onReady}
           disabled={!connectionId || !player2 || selfSlot?.ready || loading}
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
         >
-          {selfSlot?.ready ? "Ready" : "Ready up"}
+          {selfSlot?.ready ? "Ready ✓" : "Ready up"}
         </button>
 
         {isHost && (
@@ -85,7 +114,7 @@ export function RoomLobby({
             type="button"
             onClick={onStart}
             disabled={!canStart || loading}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50 disabled:hover:bg-red-600"
           >
             Start game
           </button>
