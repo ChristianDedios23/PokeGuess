@@ -15,6 +15,7 @@ export interface RoomPlayer {
   playerTokenHash: string;
   disconnectedAt?: string;
   guess?: PlayerGuess;
+  rematchRequested?: boolean;
 }
 
 export interface GameRoom {

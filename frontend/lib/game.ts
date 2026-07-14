@@ -14,6 +14,7 @@ export interface RoomPlayer {
   connected: boolean;
   ready: boolean;
   guess?: PlayerGuess;
+  rematchRequested?: boolean;
 }
 
 export interface GameRoom {

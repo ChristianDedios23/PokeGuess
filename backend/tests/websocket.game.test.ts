@@ -155,6 +155,77 @@ describe("WebSocket game flow", () => {
     guest.close();
   });
 
+  it("requestRematch waits for both players before starting a fresh match", async () => {
+    if (!dynamoAvailable) return;
+
+    const { roomCode, host, guest } = await setupActiveGame(wsUrl);
+    const firstBoard = (await getRoom(roomCode))!.board;
+
+    const hostGameOver = waitForAction(host, "gameOver");
+    const guestGameOver = waitForAction(guest, "gameOver");
+    guest.send(JSON.stringify({ action: "forfeitGame" }));
+    await Promise.all([hostGameOver, guestGameOver]);
+
+    // Host requests a rematch — nothing starts yet, but the guest sees the
+    // pending request via a room update.
+    const guestSeesRequest = waitForAction(guest, "roomUpdated");
+    host.send(JSON.stringify({ action: "requestRematch" }));
+    const pendingUpdate = await guestSeesRequest;
+    const pendingRoom = (
+      pendingUpdate as unknown as {
+        room: { players: { player1?: { rematchRequested?: boolean } } };
+      }
+    ).room;
+    expect(pendingRoom.players.player1?.rematchRequested).toBe(true);
+
+    const stillForfeited = await getRoom(roomCode);
+    expect(stillForfeited!.status).toBe("FORFEITED");
+
+    // Guest accepts by requesting too — the match should restart immediately.
+    const hostGameStarted = waitForAction(host, "gameStarted");
+    const guestGameStarted = waitForAction(guest, "gameStarted");
+    guest.send(JSON.stringify({ action: "requestRematch" }));
+    const [hostStarted, guestStarted] = await Promise.all([hostGameStarted, guestGameStarted]);
+
+    expect(hostStarted).toMatchObject({ room: { status: "ACTIVE" } });
+    expect(guestStarted).toMatchObject({ room: { status: "ACTIVE" } });
+
+    const restarted = await getRoom(roomCode);
+    expect(restarted!.status).toBe("ACTIVE");
+    expect(restarted!.winner).toBeUndefined();
+    expect(restarted!.players.player1!.guess).toBeUndefined();
+    expect(restarted!.players.player2!.guess).toBeUndefined();
+    expect(restarted!.players.player1!.rematchRequested).toBe(false);
+    expect(restarted!.players.player2!.rematchRequested).toBe(false);
+    expect(restarted!.board).toHaveLength(30);
+    // Extremely unlikely (but not guaranteed) to reshuffle to the exact same
+    // board — this just checks a new board was actually drawn.
+    expect(restarted!.board).not.toEqual(firstBoard);
+
+    host.close();
+    guest.close();
+  });
+
+  it("rejects requestRematch while the game is still active", async () => {
+    if (!dynamoAvailable) return;
+
+    const { host, guest } = await setupActiveGame(wsUrl);
+
+    await expect(
+      new Promise((resolve, reject) => {
+        host.once("message", (raw) => {
+          const data = JSON.parse(raw.toString()) as { action: string; message?: string };
+          if (data.action === "error") reject(new Error(data.message));
+          else resolve(data);
+        });
+        host.send(JSON.stringify({ action: "requestRematch" }));
+      }),
+    ).rejects.toThrow(/not finished yet/i);
+
+    host.close();
+    guest.close();
+  });
+
   it("leaveRoom gives the player a grace period to rejoin before forfeiting", async () => {
     if (!dynamoAvailable) return;
     env.forfeitGraceMs = 300;

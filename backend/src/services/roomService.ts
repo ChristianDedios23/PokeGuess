@@ -377,6 +377,75 @@ export async function forfeitGame(connectionId: string): Promise<GameRoom> {
   return room;
 }
 
+/**
+ * Either player can request a rematch once the match has ended. The first
+ * request just flags that player and notifies the opponent; nothing starts
+ * until the opponent also requests one (their "accept"), at which point a
+ * fresh match begins immediately — new board, new secrets, same two players.
+ */
+export async function requestRematch(connectionId: string): Promise<GameRoom> {
+  const { roomCode } = getConnectionEntry(connectionId);
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const room = await requireRoom(roomCode);
+    if (room.status !== "FINISHED" && room.status !== "FORFEITED") {
+      throw new GameError(409, "Game is not finished yet");
+    }
+    if (!room.players.player2) {
+      throw new GameError(409, "Opponent not in room");
+    }
+
+    const slot = findPlayerSlotByConnectionId(room, connectionId);
+    if (!slot) throw new GameError(403, "Player not in room");
+    if (room.players[slot]!.rematchRequested) {
+      return room;
+    }
+
+    room.players[slot]!.rematchRequested = true;
+    room.updatedAt = new Date().toISOString();
+    await saveRoom(room);
+
+    const saved = await requireRoom(roomCode);
+    if (!saved.players[slot]!.rematchRequested) continue;
+
+    const opponentSlot: TurnPlayer = slot === "player1" ? "player2" : "player1";
+    if (!saved.players[opponentSlot]?.rematchRequested) {
+      broadcastToRoom(saved, { action: "roomUpdated", room: saved });
+      return saved;
+    }
+
+    const board = pickBoard(BOARD_SIZE);
+    const rematchedRoom: GameRoom = {
+      ...saved,
+      status: "ACTIVE",
+      board,
+      currentTurnPlayer: "player1",
+      winner: undefined,
+      updatedAt: new Date().toISOString(),
+      players: {
+        player1: {
+          ...saved.players.player1!,
+          secretPokemonId: pickFromBoard(board),
+          guess: undefined,
+          rematchRequested: false,
+        },
+        player2: {
+          ...saved.players.player2!,
+          secretPokemonId: pickFromBoard(board),
+          guess: undefined,
+          rematchRequested: false,
+        },
+      },
+    };
+
+    await saveRoom(rematchedRoom);
+    broadcastToRoom(rematchedRoom, { action: "gameStarted", room: rematchedRoom });
+    return rematchedRoom;
+  }
+
+  throw new GameError(500, "Failed to request rematch");
+}
+
 /** Lightweight liveness ping — its only job is to trigger `resolveExpiredDisconnects`. */
 export async function touchRoomForConnection(connectionId: string): Promise<void> {
   const { roomCode } = getConnectionEntry(connectionId);

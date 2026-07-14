@@ -9,11 +9,12 @@ import { handleMakeGuess } from "./makeGuess";
 import { handlePing } from "./ping";
 import { handleRegister } from "./register";
 import { handleReadyUp } from "./readyUp";
+import { handleRequestRematch } from "./requestRematch";
 import { handleSendChatMessage } from "./sendChatMessage";
 import { handleStartGame } from "./startGame";
 import { handleDisconnect as disconnectConnection } from "../services/connectionRegistry";
 
-const NOT_IMPLEMENTED = new Set(["endTurn", "requestRematch"]);
+const NOT_IMPLEMENTED = new Set(["endTurn"]);
 
 function parseMessage(raw: unknown): WsMessage {
   const text =
@@ -56,6 +57,9 @@ export async function handleMessage(ctx: HandlerContext, raw: unknown): Promise<
         return;
       case "forfeitGame":
         await handleForfeitGame(ctx);
+        return;
+      case "requestRematch":
+        await handleRequestRematch(ctx);
         return;
       case "leaveRoom":
         await handleLeaveRoom(ctx);

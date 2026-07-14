@@ -1,4 +1,5 @@
 import { CreateRoomForm } from "@/components/CreateRoomForm";
+import { JoinRoomForm } from "@/components/JoinRoomForm";
 import { PokeballIcon } from "@/components/PokeballIcon";
 
 export default function Home() {
@@ -13,6 +14,14 @@ export default function Home() {
         </p>
       </header>
       <CreateRoomForm />
+
+      <div className="mx-auto flex w-full max-w-md items-center gap-3 text-xs font-medium tracking-wide text-zinc-400 uppercase dark:text-zinc-600">
+        <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+        or
+        <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+      </div>
+
+      <JoinRoomForm />
     </div>
   );
 }

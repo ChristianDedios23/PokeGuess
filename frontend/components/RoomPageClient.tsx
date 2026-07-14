@@ -167,6 +167,16 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     }
   }
 
+  function handleRequestRematch() {
+    if (!connectionId) return;
+    setError(null);
+    try {
+      send({ action: "requestRematch" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to request rematch");
+    }
+  }
+
   function handleLeave() {
     try {
       send({ action: "leaveRoom" });
@@ -180,6 +190,10 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const gameEnded = room?.status === "FINISHED" || room?.status === "FORFEITED";
   const ownSecretPokemonId = room?.players[selfSlot]?.secretPokemonId;
   const hasGuessed = Boolean(room?.players[selfSlot]?.guess);
+  const opponentSlot: "player1" | "player2" = selfSlot === "player1" ? "player2" : "player1";
+  const opponentName = room?.players[opponentSlot]?.displayName ?? "your opponent";
+  const selfRematchRequested = Boolean(room?.players[selfSlot]?.rematchRequested);
+  const opponentRematchRequested = Boolean(room?.players[opponentSlot]?.rematchRequested);
 
   if (!mounted) {
     return (
@@ -256,7 +270,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
 
   return (
     <div
-      className={`mx-auto flex w-full flex-col gap-6 p-6 ${gameActive ? "max-w-4xl" : "max-w-2xl"}`}
+      className={`mx-auto flex w-full flex-col gap-6 p-6 ${gameActive ? "max-w-7xl" : "max-w-2xl"}`}
     >
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
@@ -329,38 +343,79 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
       )}
 
       {room && gameActive && (
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div className="space-y-3">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <div className="order-2 lg:order-1 lg:w-80 lg:shrink-0">
+            <ChatPanel
+              connectionId={connectionId}
+              selfDisplayName={displayName}
+              selfConnectionId={connectionId}
+              enabled={gameActive}
+              incomingMessage={incomingChat}
+              sentConfirmation={sentConfirmation}
+              onSendMessage={(message) => {
+                send({ action: "sendChatMessage", message });
+              }}
+            />
+          </div>
+          <div className="order-1 flex flex-1 flex-col items-center gap-3 lg:order-2">
             {hasGuessed && (
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+              <p className="w-full max-w-4xl rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
                 You&apos;ve made your guess. Waiting for your opponent to make theirs…
               </p>
             )}
-            <GuessBoard
-              roomCode={roomCode}
-              selfSlot={selfSlot}
-              board={room.board}
-              ownSecretPokemonId={ownSecretPokemonId}
-              disabled={!connectionId || hasGuessed}
-              onGuess={handleGuess}
-            />
+            <div className="w-full max-w-4xl">
+              <GuessBoard
+                roomCode={roomCode}
+                selfSlot={selfSlot}
+                board={room.board}
+                ownSecretPokemonId={ownSecretPokemonId}
+                disabled={!connectionId || hasGuessed}
+                onGuess={handleGuess}
+              />
+            </div>
           </div>
-          <ChatPanel
-            connectionId={connectionId}
-            selfDisplayName={displayName}
-            selfConnectionId={connectionId}
-            enabled={gameActive}
-            incomingMessage={incomingChat}
-            sentConfirmation={sentConfirmation}
-            onSendMessage={(message) => {
-              send({ action: "sendChatMessage", message });
-            }}
-          />
         </div>
       )}
 
       {room && gameEnded && (
-        <GameOverBanner room={room} payload={gameOver} selfSlot={selfSlot} />
+        <div className="space-y-4">
+          <GameOverBanner room={room} payload={gameOver} selfSlot={selfSlot} />
+
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-5 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            {opponentRematchRequested && !selfRematchRequested && (
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                {opponentName} wants a rematch!
+              </p>
+            )}
+            {selfRematchRequested && !opponentRematchRequested && (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Waiting for {opponentName} to accept the rematch…
+              </p>
+            )}
+
+            <div className="flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                onClick={handleRequestRematch}
+                disabled={!connectionId || selfRematchRequested}
+                className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50 disabled:hover:bg-red-600"
+              >
+                {selfRematchRequested
+                  ? "Rematch requested ✓"
+                  : opponentRematchRequested
+                    ? "Accept rematch"
+                    : "Request rematch"}
+              </button>
+              <button
+                type="button"
+                onClick={handleLeave}
+                className="rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                Back to main menu
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {!room && hasSession && (

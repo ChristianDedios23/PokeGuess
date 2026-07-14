@@ -47,3 +47,52 @@ body {
 ::selection {
   background: rgba(220, 38, 38, 0.25);
 }
+
+@keyframes pcbox-fadein {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.pcbox-fade {
+  animation: pcbox-fadein 0.35s ease-out;
+}
+
+@keyframes pcbox-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+  }
+}
+.pcbox-selected {
+  animation: pcbox-glow 1.6s ease-in-out infinite;
+}
+
+@keyframes pcbox-sticker-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4) rotate(-25deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(-12deg);
+  }
+}
+.pcbox-sticker {
+  animation: pcbox-sticker-in 0.25s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pcbox-fade,
+  .pcbox-selected,
+  .pcbox-sticker {
+    animation: none !important;
+  }
+}
