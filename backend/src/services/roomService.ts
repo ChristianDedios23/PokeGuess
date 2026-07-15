@@ -230,6 +230,10 @@ export async function registerConnection(
     room: updatedRoom,
   });
 
+  // Let the opponent know this player reconnected — otherwise their
+  // disconnect countdown banner keeps ticking against stale room state.
+  broadcastToRoom(updatedRoom, { action: "roomUpdated", room: updatedRoom }, connectionId);
+
   return { connectionId, room: updatedRoom, isHost: slot === "player1" };
 }
 
