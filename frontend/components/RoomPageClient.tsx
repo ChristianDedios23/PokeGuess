@@ -270,43 +270,74 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
 
   return (
     <div
-      className={`mx-auto flex w-full flex-col gap-6 p-6 ${gameActive ? "max-w-7xl" : "max-w-2xl"}`}
+      className={`mx-auto flex w-full flex-col ${
+        gameActive
+          ? "relative h-full max-w-7xl overflow-hidden px-4 sm:px-6"
+          : "max-w-2xl gap-6 p-6"
+      }`}
     >
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold">Room {roomCode}</h1>
-          <p className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
-            <span
-              aria-hidden="true"
-              className={`h-2 w-2 rounded-full ${statusDotColor}`}
-            />
-            Playing as {displayName}
-            {isHost ? " (Host)" : ""}
-            {" · "}
-            {status === "connected"
-              ? "Connected"
-              : status === "connecting"
-                ? "Connecting…"
-                : "Offline"}
-          </p>
+      <header
+        className={`flex flex-wrap items-start justify-between gap-2 ${
+          gameActive
+            ? "absolute top-0 right-0 left-0 z-20 px-4 py-2 sm:px-6"
+            : "shrink-0"
+        }`}
+      >
+        <div className="space-y-0.5">
+          <h1 className={`font-bold ${gameActive ? "text-lg" : "text-2xl"}`}>Room {roomCode}</h1>
+          {!gameActive && (
+            <p className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
+              <span
+                aria-hidden="true"
+                className={`h-2 w-2 rounded-full ${statusDotColor}`}
+              />
+              Playing as {displayName}
+              {isHost ? " (Host)" : ""}
+              {" · "}
+              {status === "connected"
+                ? "Connected"
+                : status === "connecting"
+                  ? "Connecting…"
+                  : "Offline"}
+            </p>
+          )}
         </div>
 
         <div className="flex gap-2">
-          {gameActive && (
+          {gameActive && !confirmingForfeit && (
             <button
               type="button"
               onClick={handleForfeit}
               disabled={!connectionId}
-              className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950"
+              className="rounded-lg border border-red-300 bg-white/80 px-3 py-1.5 text-xs font-medium text-red-700 backdrop-blur-sm transition hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:bg-zinc-950/70 dark:text-red-300 dark:hover:bg-red-950"
             >
-              {confirmingForfeit ? "Confirm forfeit?" : "Forfeit"}
+              Forfeit
             </button>
+          )}
+          {gameActive && confirmingForfeit && (
+            <>
+              <button
+                type="button"
+                onClick={() => setConfirmingForfeit(false)}
+                className="rounded-lg border border-zinc-300 bg-white/80 px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:hover:bg-zinc-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleForfeit}
+                disabled={!connectionId}
+                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50"
+              >
+                Confirm forfeit
+              </button>
+            </>
           )}
           {!gameEnded && (
             <button
               type="button"
               onClick={handleLeave}
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              className="rounded-lg border border-zinc-300 bg-white/80 px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:hover:bg-zinc-800"
             >
               Leave game
             </button>
@@ -315,7 +346,11 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
       </header>
 
       {(error || socketError) && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <p
+          className={`rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300 ${
+            gameActive ? "absolute top-14 right-4 left-4 z-20 sm:right-6 sm:left-6" : "shrink-0"
+          }`}
+        >
           {error ?? socketError}
         </p>
       )}
@@ -324,7 +359,9 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
         <button
           type="button"
           onClick={reconnect}
-          className="self-start rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          className={`self-start rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 ${
+            gameActive ? "absolute top-14 left-4 z-20 sm:left-6" : "shrink-0"
+          }`}
         >
           Reconnect
         </button>
@@ -343,27 +380,14 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
       )}
 
       {room && gameActive && (
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-          <div className="order-2 lg:order-1 lg:w-80 lg:shrink-0">
-            <ChatPanel
-              connectionId={connectionId}
-              selfDisplayName={displayName}
-              selfConnectionId={connectionId}
-              enabled={gameActive}
-              incomingMessage={incomingChat}
-              sentConfirmation={sentConfirmation}
-              onSendMessage={(message) => {
-                send({ action: "sendChatMessage", message });
-              }}
-            />
-          </div>
-          <div className="order-1 flex flex-1 flex-col items-center gap-3 lg:order-2">
+        <div className="flex h-full min-h-0 flex-col gap-3 pt-14 pb-2 lg:flex-row lg:items-center lg:gap-4">
+          <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col self-stretch">
             {hasGuessed && (
-              <p className="w-full max-w-4xl rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+              <p className="mb-2 w-full shrink-0 rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
                 You&apos;ve made your guess. Waiting for your opponent to make theirs…
               </p>
             )}
-            <div className="w-full max-w-4xl">
+            <div className="relative min-h-0 w-full flex-1">
               <GuessBoard
                 roomCode={roomCode}
                 selfSlot={selfSlot}
@@ -373,6 +397,23 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 onGuess={handleGuess}
               />
             </div>
+          </div>
+
+          <div className="h-36 w-full shrink-0 self-center lg:h-[min(100%,36rem)] lg:w-72 xl:w-80">
+            <ChatPanel
+              className="h-full"
+              connectionId={connectionId}
+              selfDisplayName={displayName}
+              selfConnectionId={connectionId}
+              enabled={gameActive}
+              isHost={isHost}
+              connectionStatus={status}
+              incomingMessage={incomingChat}
+              sentConfirmation={sentConfirmation}
+              onSendMessage={(message) => {
+                send({ action: "sendChatMessage", message });
+              }}
+            />
           </div>
         </div>
       )}

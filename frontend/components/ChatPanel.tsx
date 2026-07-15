@@ -11,6 +11,9 @@ interface ChatPanelProps {
   incomingMessage: ChatMessage | null;
   sentConfirmation: { message: string; sentAt: string } | null;
   onSendMessage: (message: string) => void;
+  className?: string;
+  isHost?: boolean;
+  connectionStatus?: "connected" | "connecting" | "error" | "disconnected";
 }
 
 export function ChatPanel({
@@ -21,15 +24,19 @@ export function ChatPanel({
   incomingMessage,
   sentConfirmation,
   onSendMessage,
+  className = "",
+  isHost = false,
+  connectionStatus = "disconnected",
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages]);
 
   useEffect(() => {
@@ -73,16 +80,43 @@ export function ChatPanel({
       setError(err instanceof Error ? err.message : "Failed to send message");
     } finally {
       setSending(false);
+      // Keep focus so the player can keep typing without re-clicking the input.
+      requestAnimationFrame(() => inputRef.current?.focus());
     }
   }
 
+  const statusDotColor =
+    connectionStatus === "connected"
+      ? "bg-green-500"
+      : connectionStatus === "connecting"
+        ? "bg-amber-500"
+        : connectionStatus === "error"
+          ? "bg-red-500"
+          : "bg-zinc-400";
+
+  const statusLabel =
+    connectionStatus === "connected"
+      ? "Connected"
+      : connectionStatus === "connecting"
+        ? "Connecting…"
+        : "Offline";
+
   return (
-    <section className="flex h-[480px] flex-col rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+    <section
+      className={`flex min-h-0 flex-col rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 ${className}`}
+    >
+      <div className="shrink-0 border-b border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
         <h2 className="text-sm font-semibold">Chat</h2>
+        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+          <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusDotColor}`} />
+          Playing as {selfDisplayName}
+          {isHost ? " (Host)" : ""}
+          {" · "}
+          {statusLabel}
+        </p>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-3">
         {!enabled ? (
           <p className="text-sm text-zinc-500">Chat unlocks after the game starts.</p>
         ) : messages.length === 0 ? (
@@ -111,13 +145,14 @@ export function ChatPanel({
 
       <form
         onSubmit={handleSend}
-        className="flex gap-2 border-t border-zinc-200 p-4 dark:border-zinc-800"
+        className="flex shrink-0 gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800"
       >
         <input
+          ref={inputRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={enabled ? "Type a message…" : "Game not started"}
-          disabled={!enabled || !connectionId || sending}
+          placeholder={enabled ? "Send a message" : "Game not started"}
+          disabled={!enabled || !connectionId}
           className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950"
         />
         <button

@@ -76,17 +76,26 @@ body {
 }
 
 @keyframes pcbox-sticker-in {
-  from {
+  0% {
     opacity: 0;
-    transform: scale(0.4) rotate(-25deg);
+    transform: translateZ(0) scale(0.3) rotate(-30deg);
   }
-  to {
+  55% {
     opacity: 1;
-    transform: scale(1) rotate(-12deg);
+    transform: translateZ(0) scale(1.2) rotate(-6deg);
+  }
+  75% {
+    transform: translateZ(0) scale(0.94) rotate(-14deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateZ(0) scale(1) rotate(-12deg);
   }
 }
 .pcbox-sticker {
-  animation: pcbox-sticker-in 0.25s ease-out;
+  transform-origin: center;
+  backface-visibility: hidden;
+  animation: pcbox-sticker-in 0.45s cubic-bezier(0.22, 1.15, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
