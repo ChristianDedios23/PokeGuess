@@ -6,9 +6,10 @@ import { ChatPanel } from "@/components/ChatPanel";
 import { GameOverBanner } from "@/components/GameOverBanner";
 import { GuessBoard } from "@/components/GuessBoard";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { OpponentDisconnectBanner } from "@/components/OpponentDisconnectBanner";
 import { RoomLobby } from "@/components/RoomLobby";
 import type { ChatMessage, GameRoom, WsGameOver } from "@/lib/game";
-import { joinRoom } from "@/lib/game";
+import { FORFEIT_GRACE_MS, joinRoom } from "@/lib/game";
 import { getSession, saveSession, type PlayerSession } from "@/lib/session";
 import { useRoomSocket } from "@/lib/useRoomSocket";
 
@@ -194,6 +195,10 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const opponentName = room?.players[opponentSlot]?.displayName ?? "your opponent";
   const selfRematchRequested = Boolean(room?.players[selfSlot]?.rematchRequested);
   const opponentRematchRequested = Boolean(room?.players[opponentSlot]?.rematchRequested);
+  const opponentDisconnectedAt = gameActive
+    ? room?.players[opponentSlot]?.disconnectedAt
+    : undefined;
+  const opponentHasLeft = Boolean(opponentDisconnectedAt) && !room?.players[opponentSlot]?.connected;
 
   if (!mounted) {
     return (
@@ -345,26 +350,49 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
         </div>
       </header>
 
-      {(error || socketError) && (
-        <p
-          className={`rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300 ${
-            gameActive ? "absolute top-14 right-4 left-4 z-20 sm:right-6 sm:left-6" : "shrink-0"
-          }`}
-        >
-          {error ?? socketError}
-        </p>
-      )}
-
-      {status === "error" && (
-        <button
-          type="button"
-          onClick={reconnect}
-          className={`self-start rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 ${
-            gameActive ? "absolute top-14 left-4 z-20 sm:left-6" : "shrink-0"
-          }`}
-        >
-          Reconnect
-        </button>
+      {gameActive ? (
+        (error || socketError || status === "error" || opponentHasLeft) && (
+          <div className="absolute top-14 right-4 left-4 z-20 flex flex-col items-start gap-2 sm:right-6 sm:left-6">
+            {(error || socketError) && (
+              <p className="w-full rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+                {error ?? socketError}
+              </p>
+            )}
+            {status === "error" && (
+              <button
+                type="button"
+                onClick={reconnect}
+                className="rounded-lg border border-zinc-300 bg-white/80 px-3 py-2 text-sm font-medium backdrop-blur-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:hover:bg-zinc-800"
+              >
+                Reconnect
+              </button>
+            )}
+            {opponentHasLeft && opponentDisconnectedAt && (
+              <OpponentDisconnectBanner
+                opponentName={opponentName}
+                disconnectedAt={opponentDisconnectedAt}
+                graceMs={FORFEIT_GRACE_MS}
+              />
+            )}
+          </div>
+        )
+      ) : (
+        <>
+          {(error || socketError) && (
+            <p className="shrink-0 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+              {error ?? socketError}
+            </p>
+          )}
+          {status === "error" && (
+            <button
+              type="button"
+              onClick={reconnect}
+              className="shrink-0 self-start rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              Reconnect
+            </button>
+          )}
+        </>
       )}
 
       {room && room.status === "WAITING" && (

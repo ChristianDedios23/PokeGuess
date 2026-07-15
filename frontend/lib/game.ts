@@ -13,9 +13,17 @@ export interface RoomPlayer {
   secretPokemonId: number;
   connected: boolean;
   ready: boolean;
+  disconnectedAt?: string;
   guess?: PlayerGuess;
   rematchRequested?: boolean;
 }
+
+/**
+ * Mirrors the backend's default FORFEIT_GRACE_MS (see backend/src/config/env.ts).
+ * Not transmitted over the wire, so this is the client's best estimate of how
+ * long a disconnected opponent has left to reconnect before auto-forfeiting.
+ */
+export const FORFEIT_GRACE_MS = 30_000;
 
 export interface GameRoom {
   roomCode: string;

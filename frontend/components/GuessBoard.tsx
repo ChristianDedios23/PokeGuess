@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import { Fredoka } from "next/font/google";
@@ -176,6 +176,7 @@ export function GuessBoard({
 
   const wallpaper = WALLPAPERS[wallpaperIndex];
   const gridRows = Math.ceil(board.length / GRID_COLUMNS);
+  const ownPokemon = ownSecretPokemonId !== undefined ? catalog?.get(ownSecretPokemonId) : undefined;
 
   return (
     <section className={`${fredoka.variable} relative flex h-full min-h-0 w-full flex-col gap-1`}>
@@ -203,158 +204,178 @@ export function GuessBoard({
         <p className="shrink-0 text-sm text-red-600 dark:text-red-400">{loadError}</p>
       )}
 
-      <div className="relative min-h-0 w-full flex-1" style={{ containerType: "size" }}>
-        <BoardThemePicker
-          open={themePickerOpen}
-          selectedId={wallpaper.id}
-          themes={WALLPAPERS}
-          onClose={closeThemePicker}
-          onSelect={selectWallpaper}
-        />
-
-        <div
-          className="absolute top-1/2 left-1/2 max-h-full max-w-full -translate-x-1/2 -translate-y-1/2 select-none"
-          style={{
-            aspectRatio: FRAME_ASPECT,
-            width: "min(100cqw, calc(100cqh * 840 / 710))",
-            height: "min(100cqh, calc(100cqw * 710 / 840))",
-          }}
+      <div className="flex min-h-0 w-full flex-1 items-stretch gap-2 sm:gap-3">
+        <aside
+          aria-label="Your hidden Pokémon"
+          className="flex w-14 shrink-0 flex-col items-center justify-center gap-1.5 self-center rounded-2xl border border-zinc-200/80 bg-white/70 px-1 py-2.5 text-center shadow-sm backdrop-blur-sm dark:border-zinc-700/80 dark:bg-zinc-900/70 sm:w-20 sm:gap-2 sm:px-2 sm:py-3 md:w-24"
         >
-          {/* Board frame art (bezel, nav chrome and wallpaper baked in) */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            key={wallpaper.id}
-            src={wallpaper.file}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            className="pcbox-fade absolute inset-0 h-full w-full"
+          <span
+            style={{ fontFamily: "var(--font-fredoka)" }}
+            className="text-[8px] font-bold tracking-wide text-zinc-500 uppercase dark:text-zinc-400 sm:text-[9px]"
+          >
+            Yours
+          </span>
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_4px_rgba(0,0,0,0.25)] ring-2 ring-amber-400 dark:bg-zinc-800/90 sm:size-10 md:size-12">
+            {ownPokemon ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={ownPokemon.sprite}
+                alt={ownPokemon.name}
+                draggable={false}
+                className="size-[85%] object-contain"
+              />
+            ) : (
+              <div className="size-[60%] animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-700" />
+            )}
+          </div>
+          <span className="hidden truncate px-0.5 text-[9px] font-semibold text-zinc-700 capitalize dark:text-zinc-200 sm:block sm:text-[10px] md:text-xs">
+            {ownPokemon?.name ?? ""}
+          </span>
+        </aside>
+
+        <div className="relative min-h-0 w-full flex-1" style={{ containerType: "size" }}>
+          <BoardThemePicker
+            open={themePickerOpen}
+            selectedId={wallpaper.id}
+            themes={WALLPAPERS}
+            onClose={closeThemePicker}
+            onSelect={selectWallpaper}
           />
 
-          {/* Title bar label, sitting inside the painted pill */}
           <div
-            className="pointer-events-none absolute flex items-center justify-center"
-            style={NAV_TITLE}
+            className="absolute top-1/2 left-1/2 max-h-full max-w-full -translate-x-1/2 -translate-y-1/2 select-none"
+            style={{
+              aspectRatio: FRAME_ASPECT,
+              width: "min(100cqw, calc(100cqh * 840 / 710))",
+              height: "min(100cqh, calc(100cqw * 710 / 840))",
+            }}
           >
-            <span
-              style={{ fontFamily: "var(--font-fredoka)", color: wallpaper.accent }}
-              className="truncate text-[11px] font-bold drop-shadow-[0_1px_0_rgba(255,255,255,0.7)] sm:text-sm"
+            {/* Board frame art (bezel, nav chrome and wallpaper baked in) */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              key={wallpaper.id}
+              src={wallpaper.file}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              className="pcbox-fade absolute inset-0 h-full w-full"
+            />
+
+            {/* Title bar label, sitting inside the painted pill */}
+            <div
+              className="pointer-events-none absolute flex items-center justify-center"
+              style={NAV_TITLE}
             >
-              {wallpaper.label}
-            </span>
-          </div>
-
-          {/* Slot grid, overlaid on the picture area of the frame */}
-          <div className="absolute" style={CONTENT_AREA}>
-            {!catalog && !loadError ? (
-              <div className="flex h-full w-full items-center justify-center">
-                <LoadingSpinner label="Loading board..." />
-              </div>
-            ) : (
-              <div
-                className="grid h-full w-full gap-x-[calc(1.5%+2px)] gap-y-[calc(1.5%+14px)]"
-                style={{
-                  gridTemplateColumns: `repeat(${GRID_COLUMNS}, minmax(0, 1fr))`,
-                  gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
-                }}
+              <span
+                style={{ fontFamily: "var(--font-fredoka)", color: wallpaper.accent }}
+                className="truncate text-sm font-extrabold tracking-wide drop-shadow-[0_1px_0_rgba(255,255,255,0.7)] sm:text-lg md:text-xl"
               >
-                {board.map((id) => {
-                  const pokemon = catalog?.get(id);
-                  const isOwn = id === ownSecretPokemonId;
-                  const isSelected = id === selected;
-                  const isRuledOut = ruledOut.has(id);
+                {wallpaper.label}
+              </span>
+            </div>
 
-                  return (
-                    <div
-                      key={id}
-                      className="flex min-h-0 min-w-0 items-center justify-center"
-                      style={{ containerType: "size" }}
-                    >
+            {/* Slot grid, overlaid on the picture area of the frame */}
+            <div className="absolute" style={CONTENT_AREA}>
+              {!catalog && !loadError ? (
+                <div className="flex h-full w-full items-center justify-center">
+                  <LoadingSpinner label="Loading board..." />
+                </div>
+              ) : (
+                <div
+                  className="grid h-full w-full gap-x-[calc(1.5%+2px)] gap-y-[calc(1.5%+14px)]"
+                  style={{
+                    gridTemplateColumns: `repeat(${GRID_COLUMNS}, minmax(0, 1fr))`,
+                    gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
+                  }}
+                >
+                  {board.map((id) => {
+                    const pokemon = catalog?.get(id);
+                    const isSelected = id === selected;
+                    const isRuledOut = ruledOut.has(id);
+
+                    return (
                       <div
-                        role="button"
-                        tabIndex={disabled ? -1 : 0}
-                        onClick={() => toggleRuledOut(id)}
-                        onKeyDown={(event) => {
-                          if (!disabled && (event.key === "Enter" || event.key === " ")) {
-                            event.preventDefault();
-                            toggleRuledOut(id);
-                          }
-                        }}
-                        aria-pressed={isRuledOut}
-                        style={{
-                          width: "calc(min(100cqw, 100cqh) + 4px)",
-                          height: "calc(min(100cqw, 100cqh) + 4px)",
-                        }}
-                        className={`group relative flex items-center justify-center rounded-full bg-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_4px_rgba(0,0,0,0.25)] ring-1 ring-black/10 backdrop-blur-[1px] transition-[transform,box-shadow] duration-200 ease-out motion-safe:hover:-translate-y-0.5 motion-safe:hover:scale-105 motion-safe:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_10px_rgba(0,0,0,0.3)] motion-safe:active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 dark:bg-zinc-800/85 ${
-                          isSelected ? "pcbox-selected ring-2 ring-amber-400" : ""
-                        } ${disabled ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                        key={id}
+                        className="flex min-h-0 min-w-0 items-center justify-center"
+                        style={{ containerType: "size" }}
                       >
-                        {isOwn && (
-                          <span
-                            style={{ fontFamily: "var(--font-fredoka)" }}
-                            className="absolute -top-0.5 -left-0.5 z-10 rounded-full bg-amber-400 px-1 text-[7px] font-bold text-amber-950 shadow-sm sm:text-[8px]"
-                          >
-                            You
-                          </span>
-                        )}
+                        <div
+                          role="button"
+                          tabIndex={disabled ? -1 : 0}
+                          onClick={() => toggleRuledOut(id)}
+                          onKeyDown={(event) => {
+                            if (!disabled && (event.key === "Enter" || event.key === " ")) {
+                              event.preventDefault();
+                              toggleRuledOut(id);
+                            }
+                          }}
+                          aria-pressed={isRuledOut}
+                          style={{
+                            width: "calc(min(100cqw, 100cqh) + 4px)",
+                            height: "calc(min(100cqw, 100cqh) + 4px)",
+                          }}
+                          className={`group relative flex items-center justify-center rounded-full bg-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_4px_rgba(0,0,0,0.25)] ring-1 ring-black/10 backdrop-blur-[1px] transition-[transform,box-shadow] duration-200 ease-out motion-safe:hover:-translate-y-0.5 motion-safe:hover:scale-105 motion-safe:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_10px_rgba(0,0,0,0.3)] motion-safe:active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 dark:bg-zinc-800/85 ${
+                            isSelected ? "pcbox-selected ring-2 ring-amber-400" : ""
+                          } ${disabled ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                        >
+                          {pokemon ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={pokemon.sprite}
+                              alt={pokemon.name}
+                              draggable={false}
+                              className={`pointer-events-none block size-[calc(70%+4px)] shrink-0 object-contain object-center transition-[transform,filter,opacity] duration-200 motion-safe:group-hover:scale-110 ${
+                                isRuledOut ? "opacity-45 grayscale" : ""
+                              }`}
+                            />
+                          ) : (
+                            <div
+                              className={`size-[calc(60%+4px)] shrink-0 animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-700 ${
+                                isRuledOut ? "opacity-45 grayscale" : ""
+                              }`}
+                            />
+                          )}
 
-                        {pokemon ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={pokemon.sprite}
-                            alt={pokemon.name}
-                            draggable={false}
-                            className={`pointer-events-none block size-[calc(70%+4px)] shrink-0 object-contain object-center transition-[transform,filter,opacity] duration-200 motion-safe:group-hover:scale-110 ${
-                              isRuledOut ? "opacity-45 grayscale" : ""
-                            }`}
-                          />
-                        ) : (
-                          <div
-                            className={`size-[calc(60%+4px)] shrink-0 animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-700 ${
-                              isRuledOut ? "opacity-45 grayscale" : ""
-                            }`}
-                          />
-                        )}
+                          {isRuledOut && (
+                            <span
+                              aria-hidden="true"
+                              className="pcbox-sticker pointer-events-none absolute inset-0 flex items-center justify-center text-5xl font-black leading-none text-red-600 drop-shadow-[0_1px_0_rgba(127,29,29,0.45)]"
+                            >
+                              ✕
+                            </span>
+                          )}
 
-                        {isRuledOut && (
                           <span
                             aria-hidden="true"
-                            className="pcbox-sticker pointer-events-none absolute inset-0 flex items-center justify-center text-5xl font-black leading-none text-red-600 drop-shadow-[0_1px_0_rgba(127,29,29,0.45)]"
+                            className="pointer-events-none absolute -top-6 left-1/2 z-20 -translate-x-1/2 rounded-md bg-zinc-900/90 px-1.5 py-0.5 text-[9px] font-medium whitespace-nowrap text-white capitalize opacity-0 transition-opacity duration-150 group-hover:opacity-100 dark:bg-zinc-100/90 dark:text-zinc-900"
                           >
-                            ✕
+                            {pokemon?.name ?? id}
                           </span>
-                        )}
 
-                        <span
-                          aria-hidden="true"
-                          className="pointer-events-none absolute -top-6 left-1/2 z-20 -translate-x-1/2 rounded-md bg-zinc-900/90 px-1.5 py-0.5 text-[9px] font-medium whitespace-nowrap text-white capitalize opacity-0 transition-opacity duration-150 group-hover:opacity-100 dark:bg-zinc-100/90 dark:text-zinc-900"
-                        >
-                          {pokemon?.name ?? id}
-                        </span>
-
-                        <button
-                          type="button"
-                          disabled={disabled}
-                          onClick={(event) => handleSelectForGuess(event, id)}
-                          aria-label={
-                            isSelected
-                              ? `${pokemon?.name ?? id} selected`
-                              : `Guess ${pokemon?.name ?? id}`
-                          }
-                          className={`absolute right-0 bottom-0 z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full border shadow-sm transition-transform duration-150 hover:scale-125 sm:h-4 sm:w-4 ${
-                            isSelected
-                              ? "border-amber-500 bg-amber-400 text-amber-950"
-                              : "border-black/10 bg-white text-zinc-400 hover:text-red-500 dark:border-white/10 dark:bg-zinc-700 dark:text-zinc-400"
-                          }`}
-                        >
-                          <span className="block h-1.5 w-1.5 rounded-full bg-current sm:h-2 sm:w-2" />
-                        </button>
+                          <button
+                            type="button"
+                            disabled={disabled}
+                            onClick={(event) => handleSelectForGuess(event, id)}
+                            aria-label={
+                              isSelected
+                                ? `${pokemon?.name ?? id} selected`
+                                : `Guess ${pokemon?.name ?? id}`
+                            }
+                            className={`absolute right-0 bottom-0 z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full border shadow-sm transition-transform duration-150 hover:scale-125 sm:h-4 sm:w-4 ${
+                              isSelected
+                                ? "border-amber-500 bg-amber-400 text-amber-950"
+                                : "border-black/10 bg-white text-zinc-400 hover:text-red-500 dark:border-white/10 dark:bg-zinc-700 dark:text-zinc-400"
+                            }`}
+                          >
+                            <span className="block h-1.5 w-1.5 rounded-full bg-current sm:h-2 sm:w-2" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
