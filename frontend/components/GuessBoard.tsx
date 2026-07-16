@@ -7,6 +7,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { BOARD_THEMES } from "@/lib/boardThemes";
 import type { PokemonGender } from "@/lib/game";
 import { fetchPokemonCatalog, spriteForGender, type PokemonSummary } from "@/lib/pokemon";
+import { useSpriteScale } from "@/lib/useSpriteScale";
 
 const fredoka = Fredoka({
   weight: ["500", "600", "700"],
@@ -76,6 +77,116 @@ function loadWallpaperIndex(roomCode: string, selfSlot: string): number {
 function saveWallpaperIndex(roomCode: string, selfSlot: string, index: number): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(wallpaperKey(roomCode, selfSlot), String(index));
+}
+
+function BoardTile({
+  id,
+  pokemon,
+  gender,
+  sprite,
+  isSelected,
+  isRuledOut,
+  disabled,
+  onToggleRuledOut,
+  onHover,
+  onSelectForGuess,
+}: {
+  id: number;
+  pokemon: PokemonSummary | undefined;
+  gender: PokemonGender;
+  sprite: string | null;
+  isSelected: boolean;
+  isRuledOut: boolean;
+  disabled: boolean;
+  onToggleRuledOut: (id: number) => void;
+  onHover: (id: number | null, gender: PokemonGender | null) => void;
+  onSelectForGuess: (event: MouseEvent, id: number) => void;
+}) {
+  const spriteScale = useSpriteScale(sprite);
+
+  return (
+    <div
+      className="flex min-h-0 min-w-0 items-center justify-center"
+      style={{ containerType: "size" }}
+    >
+      <div
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        onClick={() => onToggleRuledOut(id)}
+        onMouseEnter={() => onHover(id, gender)}
+        onMouseLeave={() => onHover(null, null)}
+        onFocus={() => onHover(id, gender)}
+        onBlur={() => onHover(null, null)}
+        onKeyDown={(event) => {
+          if (!disabled && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            onToggleRuledOut(id);
+          }
+        }}
+        aria-pressed={isRuledOut}
+        style={{
+          width: "calc(min(100cqw, 100cqh) + 10px)",
+          height: "calc(min(100cqw, 100cqh) + 10px)",
+        }}
+        className={`group relative flex origin-center items-center justify-center rounded-full bg-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_4px_rgba(0,0,0,0.25)] ring-1 ring-black/10 backdrop-blur-[1px] transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-safe:hover:-translate-y-1 motion-safe:hover:scale-110 motion-safe:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_10px_rgba(0,0,0,0.3)] motion-safe:active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 dark:bg-zinc-800/85 ${
+          isSelected ? "pcbox-selected ring-2 ring-amber-400" : ""
+        } ${disabled ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+      >
+        {sprite ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={sprite}
+            alt={pokemon?.name ?? String(id)}
+            draggable={false}
+            style={{ transform: `scale(${spriteScale})` }}
+            className={`pointer-events-none block size-[calc(70%+4px)] shrink-0 object-contain object-center transition-[filter,opacity,transform] duration-300 ${
+              isRuledOut ? "opacity-45 grayscale" : ""
+            }`}
+          />
+        ) : (
+          <div
+            className={`size-[calc(60%+4px)] shrink-0 animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-700 ${
+              isRuledOut ? "opacity-45 grayscale" : ""
+            }`}
+          />
+        )}
+
+        {isRuledOut && (
+          <span
+            aria-hidden="true"
+            className="pcbox-sticker pointer-events-none absolute inset-0 flex items-center justify-center text-5xl font-black leading-none text-red-600 drop-shadow-[0_1px_0_rgba(127,29,29,0.45)]"
+          >
+            ✕
+          </span>
+        )}
+
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-6 left-1/2 z-20 -translate-x-1/2 rounded-md bg-zinc-900/90 px-1.5 py-0.5 text-[9px] font-medium whitespace-nowrap text-white capitalize opacity-0 transition-opacity duration-150 group-hover:opacity-100 dark:bg-zinc-100/90 dark:text-zinc-900"
+        >
+          {pokemon?.name ?? id}
+        </span>
+
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={(event) => onSelectForGuess(event, id)}
+          aria-label={isSelected ? `${pokemon?.name ?? id} selected` : `Guess ${pokemon?.name ?? id}`}
+          className="group/guess absolute -right-1.5 -bottom-1.5 z-10 flex h-8 w-8 items-center justify-center rounded-full"
+        >
+          <span
+            className={`flex h-4 w-4 items-center justify-center rounded-full border shadow-sm transition-transform duration-150 group-hover/guess:scale-110 sm:h-5 sm:w-5 ${
+              isSelected
+                ? "border-amber-500 bg-amber-400 text-amber-950"
+                : "border-black/10 bg-white text-zinc-400 group-hover/guess:text-red-500 dark:border-white/10 dark:bg-zinc-700 dark:text-zinc-400"
+            }`}
+          >
+            <span className="block h-1.5 w-1.5 rounded-full bg-current sm:h-2 sm:w-2" />
+          </span>
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export function GuessBoard({
@@ -251,96 +362,24 @@ export function GuessBoard({
                   {board.map((id, index) => {
                     const pokemon = catalog?.get(id);
                     const gender = boardGenders[index] ?? "genderless";
-                    const isSelected = id === selected;
-                    const isRuledOut = ruledOut.has(id);
                     const sprite = pokemon ? spriteForGender(pokemon, gender) : null;
 
                     return (
-                      <div
+                      <BoardTile
                         key={`${id}-${index}`}
-                        className="flex min-h-0 min-w-0 items-center justify-center"
-                        style={{ containerType: "size" }}
-                      >
-                        <div
-                          role="button"
-                          tabIndex={disabled ? -1 : 0}
-                          onClick={() => toggleRuledOut(id)}
-                          onMouseEnter={() => onHoverPokemon?.(id, gender)}
-                          onMouseLeave={() => onHoverPokemon?.(null, null)}
-                          onFocus={() => onHoverPokemon?.(id, gender)}
-                          onBlur={() => onHoverPokemon?.(null, null)}
-                          onKeyDown={(event) => {
-                            if (!disabled && (event.key === "Enter" || event.key === " ")) {
-                              event.preventDefault();
-                              toggleRuledOut(id);
-                            }
-                          }}
-                          aria-pressed={isRuledOut}
-                          style={{
-                            width: "calc(min(100cqw, 100cqh) + 10px)",
-                            height: "calc(min(100cqw, 100cqh) + 10px)",
-                          }}
-                          className={`group relative flex origin-center items-center justify-center rounded-full bg-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_4px_rgba(0,0,0,0.25)] ring-1 ring-black/10 backdrop-blur-[1px] transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-safe:hover:-translate-y-1 motion-safe:hover:scale-110 motion-safe:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_10px_rgba(0,0,0,0.3)] motion-safe:active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 dark:bg-zinc-800/85 ${
-                            isSelected ? "pcbox-selected ring-2 ring-amber-400" : ""
-                          } ${disabled ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
-                        >
-                          {sprite ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={sprite}
-                              alt={pokemon?.name ?? String(id)}
-                              draggable={false}
-                              className={`pointer-events-none block size-[calc(70%+4px)] shrink-0 object-contain object-center transition-[filter,opacity] duration-300 ${
-                                isRuledOut ? "opacity-45 grayscale" : ""
-                              }`}
-                            />
-                          ) : (
-                            <div
-                              className={`size-[calc(60%+4px)] shrink-0 animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-700 ${
-                                isRuledOut ? "opacity-45 grayscale" : ""
-                              }`}
-                            />
-                          )}
-
-                          {isRuledOut && (
-                            <span
-                              aria-hidden="true"
-                              className="pcbox-sticker pointer-events-none absolute inset-0 flex items-center justify-center text-5xl font-black leading-none text-red-600 drop-shadow-[0_1px_0_rgba(127,29,29,0.45)]"
-                            >
-                              ✕
-                            </span>
-                          )}
-
-                          <span
-                            aria-hidden="true"
-                            className="pointer-events-none absolute -top-6 left-1/2 z-20 -translate-x-1/2 rounded-md bg-zinc-900/90 px-1.5 py-0.5 text-[9px] font-medium whitespace-nowrap text-white capitalize opacity-0 transition-opacity duration-150 group-hover:opacity-100 dark:bg-zinc-100/90 dark:text-zinc-900"
-                          >
-                            {pokemon?.name ?? id}
-                          </span>
-
-                          <button
-                            type="button"
-                            disabled={disabled}
-                            onClick={(event) => handleSelectForGuess(event, id)}
-                            aria-label={
-                              isSelected
-                                ? `${pokemon?.name ?? id} selected`
-                                : `Guess ${pokemon?.name ?? id}`
-                            }
-                            className="group/guess absolute -right-1.5 -bottom-1.5 z-10 flex h-8 w-8 items-center justify-center rounded-full"
-                          >
-                            <span
-                              className={`flex h-4 w-4 items-center justify-center rounded-full border shadow-sm transition-transform duration-150 group-hover/guess:scale-110 sm:h-5 sm:w-5 ${
-                                isSelected
-                                  ? "border-amber-500 bg-amber-400 text-amber-950"
-                                  : "border-black/10 bg-white text-zinc-400 group-hover/guess:text-red-500 dark:border-white/10 dark:bg-zinc-700 dark:text-zinc-400"
-                              }`}
-                            >
-                              <span className="block h-1.5 w-1.5 rounded-full bg-current sm:h-2 sm:w-2" />
-                            </span>
-                          </button>
-                        </div>
-                      </div>
+                        id={id}
+                        pokemon={pokemon}
+                        gender={gender}
+                        sprite={sprite}
+                        isSelected={id === selected}
+                        isRuledOut={ruledOut.has(id)}
+                        disabled={disabled}
+                        onToggleRuledOut={toggleRuledOut}
+                        onHover={(hoveredId, hoveredGender) =>
+                          onHoverPokemon?.(hoveredId, hoveredGender)
+                        }
+                        onSelectForGuess={handleSelectForGuess}
+                      />
                     );
                   })}
                 </div>

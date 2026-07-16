@@ -10,6 +10,10 @@ export interface PokemonSummary {
   hasGenderDifferences: boolean;
   types: string[];
   abilities: string[];
+  /** Height in decimetres, as returned by PokéAPI. */
+  height: number;
+  /** Weight in hectograms, as returned by PokéAPI. */
+  weight: number;
 }
 
 let catalogPromise: Promise<Map<number, PokemonSummary>> | null = null;
@@ -37,6 +41,8 @@ function normalizePokemon(entry: PokemonSummary): PokemonSummary {
     spriteFemale: entry.spriteFemale ?? null,
     genderRate: typeof entry.genderRate === "number" ? entry.genderRate : -1,
     hasGenderDifferences: Boolean(entry.hasGenderDifferences),
+    height: typeof entry.height === "number" ? entry.height : 0,
+    weight: typeof entry.weight === "number" ? entry.weight : 0,
   };
 }
 

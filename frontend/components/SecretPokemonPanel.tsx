@@ -8,7 +8,10 @@ import {
   spriteForGender,
   type PokemonSummary,
 } from "@/lib/pokemon";
+import { formatGeneration } from "@/lib/pokemonGenerations";
 import { pokemonTypeIconSrc } from "@/lib/pokemonTypes";
+import { formatHeight, formatWeight } from "@/lib/pokemonUnits";
+import { useSpriteScale } from "@/lib/useSpriteScale";
 
 interface SecretPokemonPanelProps {
   pokemonId?: number;
@@ -116,6 +119,7 @@ function PokemonCircle({
   onBlur?: () => void;
 }) {
   const sprite = pokemon ? spriteForGender(pokemon, gender) : null;
+  const spriteScale = useSpriteScale(sprite);
 
   const content = (
     <>
@@ -125,8 +129,9 @@ function PokemonCircle({
           src={sprite}
           alt={blurred ? "" : pokemon?.name}
           draggable={false}
+          style={{ transform: `scale(${blurred ? spriteScale * 1.1 : spriteScale})` }}
           className={`size-[80%] object-contain transition-[filter,transform] duration-300 ${
-            blurred ? "scale-110 blur-lg" : ""
+            blurred ? "blur-lg" : ""
           }`}
         />
       ) : (
@@ -175,6 +180,7 @@ export function SecretPokemonPanel({
   const detailSprite = inspectedPokemon
     ? spriteForGender(inspectedPokemon, inspectGender)
     : null;
+  const detailSpriteScale = useSpriteScale(detailSprite);
 
   const rootRows =
     variant === "inspectView"
@@ -200,19 +206,20 @@ export function SecretPokemonPanel({
           </h2>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
           {inspectedPokemon ? (
             <>
               <div>
-                <p className="truncate text-base font-semibold capitalize text-zinc-900 dark:text-zinc-100">
+                <p className="truncate text-sm font-semibold capitalize text-zinc-900 dark:text-zinc-100">
                   {inspectedPokemon.name}
                 </p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  #{String(inspectedPokemon.id).padStart(3, "0")}
+                  #{String(inspectedPokemon.id).padStart(3, "0")} ·{" "}
+                  {formatGeneration(inspectedPokemon.id)}
                 </p>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-0.5">
                 <p className="text-[11px] font-semibold tracking-wide text-zinc-400 uppercase">
                   Gender
                 </p>
@@ -221,7 +228,26 @@ export function SecretPokemonPanel({
                 </p>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-0.5">
+                  <p className="text-[11px] font-semibold tracking-wide text-zinc-400 uppercase">
+                    Height
+                  </p>
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                    {formatHeight(inspectedPokemon.height)}
+                  </p>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[11px] font-semibold tracking-wide text-zinc-400 uppercase">
+                    Weight
+                  </p>
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                    {formatWeight(inspectedPokemon.weight)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-0.5">
                 <p className="text-[11px] font-semibold tracking-wide text-zinc-400 uppercase">
                   Types
                 </p>
@@ -250,11 +276,11 @@ export function SecretPokemonPanel({
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-0.5">
                 <p className="text-[11px] font-semibold tracking-wide text-zinc-400 uppercase">
                   Abilities
                 </p>
-                <ul className="space-y-1">
+                <ul className="space-y-0.5">
                   {inspectedPokemon.abilities.map((ability) => (
                     <li
                       key={ability}
@@ -292,6 +318,7 @@ export function SecretPokemonPanel({
               src={detailSprite}
               alt={inspectedPokemon.name}
               draggable={false}
+              style={{ transform: `scale(${detailSpriteScale})` }}
               className="h-[90%] w-[90%] object-contain drop-shadow-sm"
             />
           ) : (

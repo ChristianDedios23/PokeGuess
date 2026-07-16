@@ -1,0 +1,117 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+// PokéAPI's default sprites place each Pokémon on a fixed canvas, but small
+// creatures (Diglett, Joltik, Magnemite, ...) are drawn occupying only a
+// fraction of it. Measuring the actual non-transparent bounding box lets us
+// zoom each sprite so it fills a consistent visual footprint on the board,
+// instead of tiny Pokémon looking lost inside their circle.
+const MAX_SCALE = 2;
+const ALPHA_THRESHOLD = 16;
+// Trims the computed zoom down a bit so upscaled sprites have some breathing
+// room inside their circle instead of touching/spilling past the edge.
+const SCALE_ADJUSTMENT = 0.7;
+
+const scaleCache = new Map<string, number>();
+const pendingScans = new Map<string, Promise<number>>();
+
+function scanSpriteScale(url: string): Promise<number> {
+  const cached = scaleCache.get(url);
+  if (cached !== undefined) return Promise.resolve(cached);
+
+  const pending = pendingScans.get(url);
+  if (pending) return pending;
+
+  const promise = new Promise<number>((resolve) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+
+    image.onload = () => {
+      resolve(measureBoundingBoxScale(image));
+    };
+    image.onerror = () => resolve(1);
+    image.src = url;
+  }).then((scale) => {
+    scaleCache.set(url, scale);
+    pendingScans.delete(url);
+    return scale;
+  });
+
+  pendingScans.set(url, promise);
+  return promise;
+}
+
+function measureBoundingBoxScale(image: HTMLImageElement): number {
+  const width = image.naturalWidth;
+  const height = image.naturalHeight;
+  if (!width || !height) return 1;
+
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return 1;
+
+    ctx.drawImage(image, 0, 0);
+    const { data } = ctx.getImageData(0, 0, width, height);
+
+    let minX = width;
+    let minY = height;
+    let maxX = -1;
+    let maxY = -1;
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const alpha = data[(y * width + x) * 4 + 3];
+        if (alpha > ALPHA_THRESHOLD) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    if (maxX < minX || maxY < minY) return 1;
+
+    const contentWidth = maxX - minX + 1;
+    const contentHeight = maxY - minY + 1;
+    const rawScale = Math.max(width / contentWidth, height / contentHeight) * SCALE_ADJUSTMENT;
+    return Math.min(MAX_SCALE, Math.max(1, rawScale));
+  } catch {
+    // Canvas reads can throw if the image ends up tainted (e.g. blocked
+    // CORS response); fall back to the untouched sprite in that case.
+    return 1;
+  }
+}
+
+export function useSpriteScale(url: string | null | undefined): number {
+  const [scale, setScale] = useState(() => (url ? scaleCache.get(url) ?? 1 : 1));
+
+  useEffect(() => {
+    if (!url) {
+      setScale(1);
+      return;
+    }
+
+    const cached = scaleCache.get(url);
+    if (cached !== undefined) {
+      setScale(cached);
+      return;
+    }
+
+    let cancelled = false;
+    setScale(1);
+    scanSpriteScale(url).then((value) => {
+      if (!cancelled) setScale(value);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  return scale;
+}

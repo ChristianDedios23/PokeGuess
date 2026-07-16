@@ -19,6 +19,10 @@ export type CachedPokemon = {
   hasGenderDifferences: boolean;
   types: string[];
   abilities: string[];
+  /** Height in decimetres, as returned by PokéAPI. */
+  height: number;
+  /** Weight in hectograms, as returned by PokéAPI. */
+  weight: number;
 };
 
 const dataPath = path.join(__dirname, "..", "..", "data", "pokemon.json");
@@ -53,6 +57,8 @@ function normalizeCachedPokemon(entry: CachedPokemon): CachedPokemon {
     spriteFemale: entry.spriteFemale ?? null,
     genderRate: typeof entry.genderRate === "number" ? entry.genderRate : -1,
     hasGenderDifferences: Boolean(entry.hasGenderDifferences),
+    height: typeof entry.height === "number" ? entry.height : 0,
+    weight: typeof entry.weight === "number" ? entry.weight : 0,
   };
 }
 

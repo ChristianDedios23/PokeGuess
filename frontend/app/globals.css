@@ -129,10 +129,49 @@ body > * {
   animation: pcbox-sticker-in 0.45s cubic-bezier(0.22, 1.15, 0.36, 1) both;
 }
 
+@keyframes reveal-letter {
+  0% {
+    opacity: 0;
+    transform: translateY(60%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.reveal-letter {
+  animation-name: reveal-letter;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+}
+
+@keyframes slide-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(28px) scale(0.94);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.slide-reveal {
+  animation-name: slide-reveal;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pcbox-fade,
   .pcbox-selected,
-  .pcbox-sticker {
+  .pcbox-sticker,
+  .reveal-letter,
+  .slide-reveal {
     animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }

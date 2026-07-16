@@ -9,8 +9,8 @@ export default function Home() {
         <PokeballIcon className="mx-auto h-12 w-12 drop-shadow-sm" />
         <h1 className="text-3xl font-bold tracking-tight">PokeGuess</h1>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Create a room, share the link, and guess your opponent&apos;s Pokémon before they guess
-          yours.
+          Choose a name, create a room, share the link, and guess your opponent&apos;s Pokémon before they guess
+          yours!
         </p>
       </header>
       <CreateRoomForm />

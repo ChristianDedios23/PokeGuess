@@ -10,6 +10,7 @@ import { OpponentDisconnectBanner } from "@/components/OpponentDisconnectBanner"
 import { RoomCodeReveal } from "@/components/RoomCodeReveal";
 import { RoomLobby } from "@/components/RoomLobby";
 import { SecretPokemonPanel, YourPokemonCard } from "@/components/SecretPokemonPanel";
+import { SecretRevealScreen } from "@/components/SecretRevealScreen";
 import type { ChatMessage, GameRoom, PokemonGender, WsGameOver } from "@/lib/game";
 import { FORFEIT_GRACE_MS, joinRoom } from "@/lib/game";
 import { getSession, saveSession, type PlayerSession } from "@/lib/session";
@@ -37,6 +38,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const [hoveredPokemonId, setHoveredPokemonId] = useState<number | null>(null);
   const [hoveredGender, setHoveredGender] = useState<PokemonGender | null>(null);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const [revealingSecret, setRevealingSecret] = useState(false);
   const themesButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const hasSession = mounted && session?.roomCode === roomCode;
@@ -57,6 +59,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const handleGameStarted = useCallback((nextRoom: GameRoom) => {
     setGameOver(null);
     setRoom(nextRoom);
+    setRevealingSecret(true);
   }, []);
 
   const handleGameOver = useCallback((payload: WsGameOver) => {
@@ -292,6 +295,14 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
           : "max-w-2xl gap-6 p-6"
       }`}
     >
+      {gameActive && revealingSecret && (
+        <SecretRevealScreen
+          pokemonId={ownSecretPokemonId}
+          gender={ownSecretGender}
+          onDone={() => setRevealingSecret(false)}
+        />
+      )}
+
       <header
         className={`z-20 gap-2 ${
           gameActive
@@ -461,7 +472,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
 
       {room && gameActive && (
         <div className="flex h-full min-h-0 flex-col gap-2 pt-12 pb-1 lg:flex-row lg:items-center lg:justify-center lg:gap-1">
-          <div className="order-3 h-72 w-full shrink-0 self-center lg:order-1 lg:h-[82.5%] lg:w-60 xl:w-72">
+          <div className="order-3 h-72 w-full shrink-0 self-center lg:order-1 lg:mr-[-20px] lg:h-[82.5%] lg:w-[250px] xl:w-[298px]">
             <SecretPokemonPanel
               className="h-full"
               variant="inspectView"
@@ -509,7 +520,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
             />
           </div>
 
-          <div className="order-2 h-36 w-full min-w-0 shrink-0 self-center lg:order-3 lg:h-[82.5%] lg:w-60 xl:w-72">
+          <div className="order-2 h-36 w-full min-w-0 shrink-0 self-center lg:order-3 lg:ml-[-20px] lg:h-[82.5%] lg:w-[250px] xl:w-[298px]">
             <ChatPanel
               className="h-full"
               connectionId={connectionId}

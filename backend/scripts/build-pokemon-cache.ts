@@ -9,6 +9,9 @@ import path from "node:path";
 
 const POKE_COUNT = 1025;
 const CONCURRENCY = 8;
+// Pause between each batch of concurrent requests so we don't hammer
+// PokéAPI's servers — this is a one-time (or rare refresh) cache build.
+const BATCH_DELAY_MS = 300;
 const SPRITE_BASE = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
 
 const outputPath = path.join(__dirname, "..", "data", "pokemon.json");
@@ -28,6 +31,10 @@ export type CachedPokemon = {
   hasGenderDifferences: boolean;
   types: string[];
   abilities: string[];
+  /** Height in decimetres, as returned by PokéAPI. */
+  height: number;
+  /** Weight in hectograms, as returned by PokéAPI. */
+  weight: number;
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -35,6 +42,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 type PokeApiPokemon = {
   id: number;
   name: string;
+  height: number;
+  weight: number;
   types: Array<{ type: { name: string } }>;
   abilities: Array<{ ability: { name: string } }>;
   sprites: {
@@ -75,6 +84,8 @@ async function fetchPokemon(id: number): Promise<CachedPokemon> {
     hasGenderDifferences: species.has_gender_differences,
     types: data.types.map((entry) => entry.type.name),
     abilities: data.abilities.map((entry) => entry.ability.name),
+    height: data.height,
+    weight: data.weight,
   };
 }
 
@@ -112,6 +123,10 @@ async function build() {
 
     completed += batch.length;
     console.log(`Fetched ${completed}/${POKE_COUNT}`);
+
+    if (completed < POKE_COUNT) {
+      await sleep(BATCH_DELAY_MS);
+    }
   }
 
   await mkdir(path.dirname(outputPath), { recursive: true });

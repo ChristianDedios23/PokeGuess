@@ -13,18 +13,27 @@ interface RoomLobbyProps {
   loading: boolean;
 }
 
-function statusChip(player: RoomPlayer | undefined) {
-  if (!player) {
-    return (
-      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800">
-        Waiting…
-      </span>
-    );
-  }
+function readinessChip(player: RoomPlayer | undefined) {
+  if (!player) return null;
   if (player.ready) {
     return (
       <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-300">
         Ready
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+      Not ready
+    </span>
+  );
+}
+
+function connectionChip(player: RoomPlayer | undefined) {
+  if (!player) {
+    return (
+      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800">
+        Waiting…
       </span>
     );
   }
@@ -38,6 +47,15 @@ function statusChip(player: RoomPlayer | undefined) {
   return (
     <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800">
       Offline
+    </span>
+  );
+}
+
+function statusChips(player: RoomPlayer | undefined) {
+  return (
+    <span className="flex items-center gap-1.5">
+      {readinessChip(player)}
+      {connectionChip(player)}
     </span>
   );
 }
@@ -87,11 +105,11 @@ export function RoomLobby({
         <ul className="space-y-2 text-sm">
           <li className="flex items-center justify-between rounded-xl bg-zinc-50 px-4 py-3 dark:bg-zinc-800/60">
             <span className="font-medium">{player1?.displayName ?? "Host"} · (Host)</span>
-            {statusChip(player1)}
+            {statusChips(player1)}
           </li>
           <li className="flex items-center justify-between rounded-xl bg-zinc-50 px-4 py-3 dark:bg-zinc-800/60">
             <span className="font-medium">{player2?.displayName ?? "Waiting for opponent…"}</span>
-            {statusChip(player2)}
+            {statusChips(player2)}
           </li>
         </ul>
       </div>
@@ -111,7 +129,7 @@ export function RoomLobby({
             type="button"
             onClick={onStart}
             disabled={!canStart || loading}
-            className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50 disabled:hover:bg-red-600"
+            className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:opacity-50 disabled:hover:bg-green-600"
           >
             Start game
           </button>
