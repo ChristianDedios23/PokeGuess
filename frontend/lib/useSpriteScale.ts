@@ -13,6 +13,20 @@ const ALPHA_THRESHOLD = 16;
 // room inside their circle instead of touching/spilling past the edge.
 const SCALE_ADJUSTMENT = 0.7;
 
+// Manual per-Pokémon fine-tuning, applied on top of the automatic
+// bounding-box scale above. Use this when a specific Pokémon still looks
+// too small/large after the automatic measurement (e.g. its sprite has a
+// lot of transparent padding that isn't purely "empty space", like tails
+// or flying poses). Values are multipliers: 1 = no change, 1.15 = 15%
+// bigger, 0.9 = 10% smaller. Keyed by Pokédex id.
+const MANUAL_SCALE_OVERRIDES: Record<number, number> = {
+  973: 0.80, // Flamigo
+  528: 0.85, // Swoobat
+  282: 1.25, // Gardevoir
+  281: 0.90, // Kirlia
+  948: 0.70, // Toedscool
+};
+
 const scaleCache = new Map<string, number>();
 const pendingScans = new Map<string, Promise<number>>();
 
@@ -87,7 +101,12 @@ function measureBoundingBoxScale(image: HTMLImageElement): number {
   }
 }
 
-export function useSpriteScale(url: string | null | undefined): number {
+export function useSpriteScale(
+  url: string | null | undefined,
+  pokemonId?: number | null,
+): number {
+  const override =
+    pokemonId != null ? MANUAL_SCALE_OVERRIDES[pokemonId] ?? 1 : 1;
   const [scale, setScale] = useState(() => (url ? scaleCache.get(url) ?? 1 : 1));
 
   useEffect(() => {
@@ -113,5 +132,5 @@ export function useSpriteScale(url: string | null | undefined): number {
     };
   }, [url]);
 
-  return scale;
+  return scale * override;
 }

@@ -59,3 +59,21 @@ export function formatPokemonGender(gender: PokemonGender | null | undefined): s
   if (gender === "female") return "Female";
   return "Genderless";
 }
+
+/**
+ * Formats a PokéAPI-style `genderRate` (eighths female, or -1 for
+ * genderless species) into a human-readable male/female split, on
+ * separate lines, e.g. ["87.5% Male ♂", "12.5% Female ♀"].
+ */
+export function formatGenderRate(genderRate: number): string[] {
+  if (genderRate < 0) return ["Genderless"];
+  if (genderRate === 0) return ["100% Male ♂"];
+  if (genderRate === 8) return ["100% Female ♀"];
+
+  const femalePercent = (genderRate / 8) * 100;
+  const malePercent = 100 - femalePercent;
+  const format = (value: number) =>
+    Number.isInteger(value) ? value.toString() : value.toFixed(1);
+
+  return [`${format(malePercent)}% Male ♂`, `${format(femalePercent)}% Female ♀`];
+}

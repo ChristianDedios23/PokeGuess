@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { PokemonGender } from "@/lib/game";
 import {
   fetchPokemonCatalog,
+  formatGenderRate,
   formatPokemonGender,
   spriteForGender,
   type PokemonSummary,
@@ -119,7 +120,7 @@ function PokemonCircle({
   onBlur?: () => void;
 }) {
   const sprite = pokemon ? spriteForGender(pokemon, gender) : null;
-  const spriteScale = useSpriteScale(sprite);
+  const spriteScale = useSpriteScale(sprite, pokemon?.id);
 
   const content = (
     <>
@@ -180,7 +181,7 @@ export function SecretPokemonPanel({
   const detailSprite = inspectedPokemon
     ? spriteForGender(inspectedPokemon, inspectGender)
     : null;
-  const detailSpriteScale = useSpriteScale(detailSprite);
+  const detailSpriteScale = useSpriteScale(detailSprite, inspectedPokemon?.id);
 
   const rootRows =
     variant === "inspectView"
@@ -276,20 +277,35 @@ export function SecretPokemonPanel({
                 </div>
               </div>
 
-              <div className="space-y-0.5">
-                <p className="text-[11px] font-semibold tracking-wide text-zinc-400 uppercase">
-                  Abilities
-                </p>
-                <ul className="space-y-0.5">
-                  {inspectedPokemon.abilities.map((ability) => (
-                    <li
-                      key={ability}
-                      className="text-sm capitalize text-zinc-700 dark:text-zinc-300"
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-0.5">
+                  <p className="text-[11px] font-semibold tracking-wide text-zinc-400 uppercase">
+                    Abilities
+                  </p>
+                  <ul className="space-y-0.5">
+                    {inspectedPokemon.abilities.map((ability) => (
+                      <li
+                        key={ability}
+                        className="text-sm capitalize text-zinc-700 dark:text-zinc-300"
+                      >
+                        {ability.replace(/-/g, " ")}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[11px] font-semibold tracking-wide text-zinc-400 uppercase">
+                    Gender Probability
+                  </p>
+                  {formatGenderRate(inspectedPokemon.genderRate).map((line) => (
+                    <p
+                      key={line}
+                      className="text-sm text-zinc-700 dark:text-zinc-300"
                     >
-                      {ability.replace(/-/g, " ")}
-                    </li>
+                      {line}
+                    </p>
                   ))}
-                </ul>
+                </div>
               </div>
             </>
           ) : (

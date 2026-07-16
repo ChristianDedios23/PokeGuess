@@ -102,11 +102,11 @@ function BoardTile({
   onHover: (id: number | null, gender: PokemonGender | null) => void;
   onSelectForGuess: (event: MouseEvent, id: number) => void;
 }) {
-  const spriteScale = useSpriteScale(sprite);
+  const spriteScale = useSpriteScale(sprite, id);
 
   return (
     <div
-      className="flex min-h-0 min-w-0 items-center justify-center"
+      className="relative z-0 flex min-h-0 min-w-0 items-center justify-center hover:z-20 focus-within:z-20"
       style={{ containerType: "size" }}
     >
       <div
@@ -166,13 +166,29 @@ function BoardTile({
         >
           {pokemon?.name ?? id}
         </span>
+      </div>
 
+      {/*
+        Stationary sizer that mirrors the circle's exact footprint above,
+        but without its hover scale/translate animation. The guess button
+        lives in here instead of inside the animated circle so its hitbox
+        never drifts out from under the cursor mid-hover (which made
+        clicks near the edges/corners of the button unreliable).
+      */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+        style={{
+          width: "calc(min(100cqw, 100cqh) + 10px)",
+          height: "calc(min(100cqw, 100cqh) + 10px)",
+        }}
+      >
         <button
           type="button"
           disabled={disabled}
           onClick={(event) => onSelectForGuess(event, id)}
           aria-label={isSelected ? `${pokemon?.name ?? id} selected` : `Guess ${pokemon?.name ?? id}`}
-          className="group/guess absolute -right-1.5 -bottom-1.5 z-10 flex h-8 w-8 items-center justify-center rounded-full"
+          className="group/guess pointer-events-auto absolute -right-1.5 -bottom-1.5 z-10 flex h-8 w-8 items-center justify-center rounded-full"
         >
           <span
             className={`flex h-4 w-4 items-center justify-center rounded-full border shadow-sm transition-transform duration-150 group-hover/guess:scale-110 sm:h-5 sm:w-5 ${
