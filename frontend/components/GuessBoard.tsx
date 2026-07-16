@@ -40,6 +40,10 @@ interface GuessBoardProps {
   themePickerOpen: boolean;
   onThemePickerOpenChange: (open: boolean) => void;
   themesButtonRef: RefObject<HTMLButtonElement | null>;
+  player1Name: string;
+  player2Name: string;
+  score1: number;
+  score2: number;
 }
 
 function ruledOutKey(roomCode: string, selfSlot: string): string {
@@ -216,6 +220,10 @@ export function GuessBoard({
   themePickerOpen,
   onThemePickerOpenChange,
   themesButtonRef,
+  player1Name,
+  player2Name,
+  score1,
+  score2,
 }: GuessBoardProps) {
   const [catalog, setCatalog] = useState<Map<number, PokemonSummary> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -348,17 +356,25 @@ export function GuessBoard({
               className="pcbox-fade absolute inset-0 h-full w-full"
             />
 
-            {/* Title bar label, sitting inside the painted pill */}
+            {/* Title bar: live scoreboard, sitting inside the painted pill */}
             <div
               className="pointer-events-none absolute flex items-center justify-center"
               style={NAV_TITLE}
             >
-              <span
+              <div
                 style={{ fontFamily: "var(--font-fredoka)", color: wallpaper.accent }}
-                className="truncate text-sm font-extrabold tracking-wide drop-shadow-[0_1px_0_rgba(255,255,255,0.7)] sm:text-lg md:text-xl"
+                className="flex w-full -translate-y-5 items-center justify-center gap-2 px-3 text-sm font-extrabold tracking-wide drop-shadow-[0_1px_0_rgba(255,255,255,0.7)] sm:gap-3 sm:text-lg md:text-xl"
               >
-                {wallpaper.label}
-              </span>
+                <span className="min-w-0 flex-1 truncate text-right">
+                  {player1Name}
+                </span>
+                <span className="shrink-0 tabular-nums">
+                  {score1} <span className="opacity-60">–</span> {score2}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-left">
+                  {player2Name}
+                </span>
+              </div>
             </div>
 
             {/* Slot grid, overlaid on the picture area of the frame */}

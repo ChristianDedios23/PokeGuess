@@ -26,6 +26,35 @@ interface RoomPageClientProps {
   roomCode: string;
 }
 
+interface MatchScore {
+  player1: number;
+  player2: number;
+}
+
+function scoreKey(roomCode: string): string {
+  return `pokeguess_score_${roomCode.toUpperCase()}`;
+}
+
+function loadScore(roomCode: string): MatchScore {
+  if (typeof window === "undefined") return { player1: 0, player2: 0 };
+  try {
+    const raw = window.localStorage.getItem(scoreKey(roomCode));
+    if (!raw) return { player1: 0, player2: 0 };
+    const parsed = JSON.parse(raw) as Partial<MatchScore>;
+    return {
+      player1: typeof parsed.player1 === "number" ? parsed.player1 : 0,
+      player2: typeof parsed.player2 === "number" ? parsed.player2 : 0,
+    };
+  } catch {
+    return { player1: 0, player2: 0 };
+  }
+}
+
+function saveScore(roomCode: string, score: MatchScore): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(scoreKey(roomCode), JSON.stringify(score));
+}
+
 export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -46,6 +75,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [gameInfoPanel, setGameInfoPanel] = useState<"rules" | "howToPlay" | null>(null);
   const [revealingSecret, setRevealingSecret] = useState(false);
+  const [score, setScore] = useState<MatchScore>({ player1: 0, player2: 0 });
   const themesButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const hasSession = mounted && session?.roomCode === roomCode;
@@ -69,10 +99,22 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     setRevealingSecret(true);
   }, []);
 
-  const handleGameOver = useCallback((payload: WsGameOver) => {
-    setRoom(payload.room);
-    setGameOver(payload);
-  }, []);
+  const handleGameOver = useCallback(
+    (payload: WsGameOver) => {
+      setRoom(payload.room);
+      setGameOver(payload);
+
+      const winner = payload.room.winner;
+      if (winner === "player1" || winner === "player2") {
+        setScore((prev) => {
+          const next = { ...prev, [winner]: prev[winner] + 1 };
+          saveScore(roomCode, next);
+          return next;
+        });
+      }
+    },
+    [roomCode],
+  );
 
   const handleChatMessage = useCallback(
     (payload: {
@@ -110,6 +152,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
 
   useEffect(() => {
     setSession(getSession(roomCode));
+    setScore(loadScore(roomCode));
     setMounted(true);
   }, [roomCode]);
 
@@ -552,6 +595,10 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 themePickerOpen={themePickerOpen}
                 onThemePickerOpenChange={setThemePickerOpen}
                 themesButtonRef={themesButtonRef}
+                player1Name={room.players.player1?.displayName ?? "Player 1"}
+                player2Name={room.players.player2?.displayName ?? "Player 2"}
+                score1={score.player1}
+                score2={score.player2}
               />
             </div>
             <YourPokemonCard
