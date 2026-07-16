@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { RoomCodeReveal } from "@/components/RoomCodeReveal";
 import type { GameRoom, RoomPlayer } from "@/lib/game";
 
@@ -82,21 +83,31 @@ export function RoomLobby({
   const bothReady = Boolean(player1?.ready && player2?.ready);
   const canStart = isHost && player2 && bothReady && connectionId;
 
+  const [linkCopied, setLinkCopied] = useState(false);
+
   async function copyInviteLink() {
-    await navigator.clipboard.writeText(inviteUrl);
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 1500);
+    } catch {
+      // Clipboard may be unavailable; fail silently.
+    }
   }
 
   return (
     <section className="space-y-5 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex flex-col items-center gap-3 text-center">
         <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase">Room code</p>
-        <RoomCodeReveal roomCode={room.roomCode} showHint />
+        <RoomCodeReveal roomCode={room.roomCode} copyable showHint />
         <button
           type="button"
           onClick={copyInviteLink}
           className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
         >
-          Copy invite link
+          <span role="status" aria-live="polite">
+            {linkCopied ? "Copied!" : "Copy invite link"}
+          </span>
         </button>
       </div>
 

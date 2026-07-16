@@ -102,35 +102,35 @@ export function GameInfoModal({ panel, onClose }: GameInfoModalProps) {
             <p>Placeholder — game rules will go here.</p>
           ) : (
             <>
-              <p>
+              <div>
                 <strong>Objective:</strong>
                 <ul>
                   <li>- Guess your opponent's Pokémon before they guess yours.</li>
                 </ul>
-              </p>
-              <p>
+              </div>
+              <div>
                 <strong>Setup:</strong>
                 <ul>
                   <li>- Both players receive the same 30 Pokémon to guess from.</li>
                   <li>- Each player receives a random Pokémon their opponent must guess.</li>
                   <li>- Your opponent does not know which Pokémon they are guessing.</li>
                 </ul>
-              </p>
-              <p>
+              </div>
+              <div>
                 <strong>Taking Turns:</strong>
                 <ul>
                   <li>- Players take turns asking yes/no questions to help narrow down the possible Pokémon.</li>
                   <li>- After a question is asked, the player who asked the question gets to eliminate Pokémon that are not relevant to the answer.</li>
                   <li>- The asking player's turn ends and the other player's turn begins.</li>
                 </ul>
-              </p>
-              <p>
+              </div>
+              <div>
                 <strong>Winning:</strong>
                 <ul>
                   <li>- Whenever a player has the chance to ask a question, they could instead choose to guess the opponent's Pokémon.</li>
                   <li>- If the guess is correct, the player wins the game, otherwise they immediately lose the game.</li>
                 </ul>
-              </p>
+              </div>
             </>
           )}
         </div>

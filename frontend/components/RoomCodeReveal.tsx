@@ -7,22 +7,22 @@ interface RoomCodeRevealProps {
   roomCode: string;
   className?: string;
   showHint?: boolean;
-  /** When set, clicking the code copies this value (e.g. the room invite URL). */
-  copyText?: string;
+  /** When true, clicking the code copies the room code to the clipboard. */
+  copyable?: boolean;
 }
 
 export function RoomCodeReveal({
   roomCode,
   className = "text-3xl font-bold tracking-[0.3em] text-red-600 dark:text-red-500",
   showHint = false,
-  copyText,
+  copyable = false,
 }: RoomCodeRevealProps) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    if (!copyText) return;
+    if (!copyable) return;
     try {
-      await navigator.clipboard.writeText(copyText);
+      await navigator.clipboard.writeText(roomCode);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -32,16 +32,18 @@ export function RoomCodeReveal({
 
   return (
     <div className="flex flex-col items-center gap-1 text-center">
-      {copyText ? (
+      {copyable ? (
         <button
           type="button"
           onClick={handleCopy}
-          aria-label={`Room code ${roomCode}. Click to copy invite link.`}
-          title="Copy invite link"
+          aria-label={`Room code ${roomCode}. Click to copy.`}
+          title="Copy room code"
           className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
         >
           <DoubleUnderline className={className}>
             <span
+              role="status"
+              aria-live="polite"
               className={`inline-block transition-[filter] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                 copied
                   ? "blur-none"

@@ -420,7 +420,8 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
             </div>
             <RoomCodeReveal
               roomCode={roomCode}
-              copyText={inviteUrl}
+              copyable
+              showHint
               className="text-lg font-bold tracking-[0.25em] text-red-600 dark:text-red-500"
             />
           </>
