@@ -2,9 +2,15 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { FaDoorOpen } from "react-icons/fa";
+import { HiOutlineHandRaised } from "react-icons/hi2";
+import { IoIosPaper } from "react-icons/io";
+import { LuPaintbrush } from "react-icons/lu";
+import { MdGavel } from "react-icons/md";
 import { ChatPanel } from "@/components/ChatPanel";
 import { GameOverBanner } from "@/components/GameOverBanner";
 import { GuessBoard } from "@/components/GuessBoard";
+import { GameInfoModal } from "@/components/HowToPlayModal";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { OpponentDisconnectBanner } from "@/components/OpponentDisconnectBanner";
 import { RoomCodeReveal } from "@/components/RoomCodeReveal";
@@ -38,6 +44,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const [hoveredPokemonId, setHoveredPokemonId] = useState<number | null>(null);
   const [hoveredGender, setHoveredGender] = useState<PokemonGender | null>(null);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const [gameInfoPanel, setGameInfoPanel] = useState<"rules" | "howToPlay" | null>(null);
   const [revealingSecret, setRevealingSecret] = useState(false);
   const themesButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -303,6 +310,11 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
         />
       )}
 
+      <GameInfoModal
+        panel={gameInfoPanel}
+        onClose={() => setGameInfoPanel(null)}
+      />
+
       <header
         className={`z-20 gap-2 ${
           gameActive
@@ -312,20 +324,55 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
       >
         {gameActive ? (
           <>
-            <div className="justify-self-start">
+            <div className="flex items-center gap-2 justify-self-start">
               <button
                 ref={themesButtonRef}
                 type="button"
                 onClick={() => setThemePickerOpen((open) => !open)}
                 aria-expanded={themePickerOpen}
                 aria-haspopup="dialog"
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
                   themePickerOpen
                     ? "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
                     : "border-zinc-300 bg-white/80 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 }`}
               >
+                <LuPaintbrush className="size-3.5 shrink-0" aria-hidden="true" />
                 Themes
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setThemePickerOpen(false);
+                  setGameInfoPanel("rules");
+                }}
+                aria-expanded={gameInfoPanel === "rules"}
+                aria-haspopup="dialog"
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
+                  gameInfoPanel === "rules"
+                    ? "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
+                    : "border-zinc-300 bg-white/80 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <IoIosPaper className="size-3.5 shrink-0" aria-hidden="true" />
+                Rules
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setThemePickerOpen(false);
+                  setGameInfoPanel("howToPlay");
+                }}
+                aria-expanded={gameInfoPanel === "howToPlay"}
+                aria-haspopup="dialog"
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
+                  gameInfoPanel === "howToPlay"
+                    ? "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
+                    : "border-zinc-300 bg-white/80 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <HiOutlineHandRaised className="size-3.5 shrink-0" aria-hidden="true" />
+                How to Play
               </button>
             </div>
             <RoomCodeReveal
@@ -377,8 +424,9 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
               type="button"
               onClick={handleForfeit}
               disabled={!connectionId}
-              className="rounded-lg border border-red-300 bg-white/80 px-3 py-1.5 text-xs font-medium text-red-700 backdrop-blur-sm transition hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:bg-zinc-950/70 dark:text-red-300 dark:hover:bg-red-950"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white/80 px-3 py-1.5 text-xs font-medium text-red-700 backdrop-blur-sm transition hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:bg-zinc-950/70 dark:text-red-300 dark:hover:bg-red-950"
             >
+              <MdGavel className="size-3.5 shrink-0" aria-hidden="true" />
               Forfeit
             </button>
           )}
@@ -395,8 +443,9 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 type="button"
                 onClick={handleForfeit}
                 disabled={!connectionId}
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50"
               >
+                <MdGavel className="size-3.5 shrink-0" aria-hidden="true" />
                 Confirm forfeit
               </button>
             </>
@@ -405,8 +454,9 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
             <button
               type="button"
               onClick={handleLeave}
-              className="rounded-lg border border-zinc-300 bg-white/80 px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:hover:bg-zinc-800"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white/80 px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:hover:bg-zinc-800"
             >
+              <FaDoorOpen className="size-3.5 shrink-0" aria-hidden="true" />
               Leave game
             </button>
           )}

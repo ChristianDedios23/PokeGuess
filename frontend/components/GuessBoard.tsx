@@ -129,7 +129,7 @@ function BoardTile({
           height: "calc(min(100cqw, 100cqh) + 10px)",
         }}
         className={`group relative flex origin-center items-center justify-center rounded-full bg-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_4px_rgba(0,0,0,0.25)] ring-1 ring-black/10 backdrop-blur-[1px] transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-safe:hover:-translate-y-1 motion-safe:hover:scale-110 motion-safe:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_10px_rgba(0,0,0,0.3)] motion-safe:active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 dark:bg-zinc-800/85 ${
-          isSelected ? "pcbox-selected ring-2 ring-amber-400" : ""
+          isSelected ? "pcbox-selected ring-4 ring-amber-400" : ""
         } ${disabled ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
       >
         {sprite ? (

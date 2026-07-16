@@ -25,6 +25,9 @@ const MANUAL_SCALE_OVERRIDES: Record<number, number> = {
   282: 1.25, // Gardevoir
   281: 0.90, // Kirlia
   948: 0.70, // Toedscool
+  707: 0.95, // Klefki
+  950: 0.80, // Klawf
+  586: 0.90, // Sawsbuck
 };
 
 const scaleCache = new Map<string, number>();
