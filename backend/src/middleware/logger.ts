@@ -1,8 +1,15 @@
 import { Request, Response, NextFunction } from "express";
 
-export const logger = (req: Request, _res: Response, next: NextFunction) => {
-  const timestamp = new Date().toISOString();
+export const logger = (req: Request, res: Response, next: NextFunction) => {
+  const startedAt = performance.now();
 
-  console.log(`[${timestamp}] ${req.method} ${req.path}`);
+  res.on("finish", () => {
+    const durationMs = Math.round(performance.now() - startedAt);
+    const timestamp = new Date().toISOString();
+    console.log(
+      `[${timestamp}] ${req.method} ${req.originalUrl} → ${res.statusCode} (${durationMs}ms)`,
+    );
+  });
+
   next();
 };

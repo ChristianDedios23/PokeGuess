@@ -16,6 +16,7 @@ export function makeTestRoom(roomCode: string): GameRoom {
     roomCode,
     status: "WAITING",
     board: [],
+    boardGenders: [],
     players: {},
     createdAt: now,
     updatedAt: now,

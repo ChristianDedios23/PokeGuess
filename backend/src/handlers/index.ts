@@ -29,8 +29,12 @@ function parseMessage(raw: unknown): WsMessage {
 }
 
 export async function handleMessage(ctx: HandlerContext, raw: unknown): Promise<void> {
+  const startedAt = performance.now();
+  let actionLabel = "unknown";
+
   try {
     const msg = parseMessage(raw);
+    actionLabel = msg.action;
 
     if (NOT_IMPLEMENTED.has(msg.action)) {
       throw new GameError(501, `${msg.action} is not implemented yet`);
@@ -39,43 +43,56 @@ export async function handleMessage(ctx: HandlerContext, raw: unknown): Promise<
     switch (msg.action) {
       case "createRoom":
         await handleCreateRoom(ctx, msg);
-        return;
+        break;
       case "joinRoom":
         await handleJoinRoom(ctx, msg);
-        return;
+        break;
       case "register":
         await handleRegister(ctx, msg);
-        return;
+        break;
       case "readyUp":
         await handleReadyUp(ctx);
-        return;
+        break;
       case "startGame":
         await handleStartGame(ctx);
-        return;
+        break;
       case "makeGuess":
         await handleMakeGuess(ctx, msg);
-        return;
+        break;
       case "forfeitGame":
         await handleForfeitGame(ctx);
-        return;
+        break;
       case "requestRematch":
         await handleRequestRematch(ctx);
-        return;
+        break;
       case "leaveRoom":
         await handleLeaveRoom(ctx);
-        return;
+        break;
       case "ping":
         await handlePing(ctx);
-        return;
+        break;
       case "sendChatMessage":
         await handleSendChatMessage(ctx, msg);
-        return;
+        break;
       default:
         throw new GameError(400, `Unknown action: ${msg.action}`);
+    }
+
+    const durationMs = Math.round(performance.now() - startedAt);
+    if (actionLabel !== "ping") {
+      console.log(
+        `[${new Date().toISOString()}] WS ${actionLabel} → ok (${durationMs}ms)`,
+      );
     }
   } catch (error) {
     const status = error instanceof GameError ? error.status : 500;
     const message = error instanceof GameError ? error.message : "Internal server error";
+    const durationMs = Math.round(performance.now() - startedAt);
+    if (actionLabel !== "ping") {
+      console.log(
+        `[${new Date().toISOString()}] WS ${actionLabel} → ${status} (${durationMs}ms)`,
+      );
+    }
     sendJson(ctx.ws, { action: "error", status, message });
   }
 }

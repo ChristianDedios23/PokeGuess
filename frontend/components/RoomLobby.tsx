@@ -1,5 +1,6 @@
 "use client";
 
+import { RoomCodeReveal } from "@/components/RoomCodeReveal";
 import type { GameRoom, RoomPlayer } from "@/lib/game";
 
 interface RoomLobbyProps {
@@ -29,7 +30,7 @@ function statusChip(player: RoomPlayer | undefined) {
   }
   if (player.connected) {
     return (
-      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
         Connected
       </span>
     );
@@ -69,13 +70,9 @@ export function RoomLobby({
 
   return (
     <section className="space-y-5 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase">Room code</p>
-          <p className="text-3xl font-bold tracking-[0.3em] text-red-600 dark:text-red-500">
-            {room.roomCode}
-          </p>
-        </div>
+      <div className="flex flex-col items-center gap-3 text-center">
+        <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase">Room code</p>
+        <RoomCodeReveal roomCode={room.roomCode} showHint />
         <button
           type="button"
           onClick={copyInviteLink}
@@ -89,7 +86,7 @@ export function RoomLobby({
         <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase">Players</p>
         <ul className="space-y-2 text-sm">
           <li className="flex items-center justify-between rounded-xl bg-zinc-50 px-4 py-3 dark:bg-zinc-800/60">
-            <span className="font-medium">{player1?.displayName ?? "Host"} · Host</span>
+            <span className="font-medium">{player1?.displayName ?? "Host"} · (Host)</span>
             {statusChip(player1)}
           </li>
           <li className="flex items-center justify-between rounded-xl bg-zinc-50 px-4 py-3 dark:bg-zinc-800/60">
@@ -106,7 +103,7 @@ export function RoomLobby({
           disabled={!connectionId || !player2 || selfSlot?.ready || loading}
           className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
         >
-          {selfSlot?.ready ? "Ready ✓" : "Ready up"}
+          {selfSlot?.ready ? "Ready ✓" : "I'm ready!"}
         </button>
 
         {isHost && (

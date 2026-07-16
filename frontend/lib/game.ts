@@ -1,6 +1,7 @@
 import { wsRequest } from "./wsClient";
 
 export type RoomStatus = "WAITING" | "ACTIVE" | "FINISHED" | "FORFEITED";
+export type PokemonGender = "male" | "female" | "genderless";
 
 export interface PlayerGuess {
   pokemonId: number;
@@ -11,6 +12,7 @@ export interface RoomPlayer {
   connectionId: string;
   displayName: string;
   secretPokemonId: number;
+  secretGender: PokemonGender;
   connected: boolean;
   ready: boolean;
   disconnectedAt?: string;
@@ -29,6 +31,7 @@ export interface GameRoom {
   roomCode: string;
   status: RoomStatus;
   board: number[];
+  boardGenders: PokemonGender[];
   players: {
     player1?: RoomPlayer;
     player2?: RoomPlayer;

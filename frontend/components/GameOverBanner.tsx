@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import type { GameRoom, WsGameOver } from "@/lib/game";
-import { fetchPokemonCatalog, type PokemonSummary } from "@/lib/pokemon";
+import {
+  fetchPokemonCatalog,
+  formatPokemonGender,
+  spriteForGender,
+  type PokemonSummary,
+} from "@/lib/pokemon";
 
 interface GameOverBannerProps {
   room: GameRoom;
@@ -59,6 +64,12 @@ export function GameOverBanner({ room, payload, selfSlot }: GameOverBannerProps)
 
   const selfPokemon = catalog?.get(room.players[selfSlot]?.secretPokemonId ?? -1);
   const opponentPokemon = catalog?.get(room.players[opponentSlot]?.secretPokemonId ?? -1);
+  const selfGender = room.players[selfSlot]?.secretGender;
+  const opponentGender = room.players[opponentSlot]?.secretGender;
+  const selfSprite = selfPokemon ? spriteForGender(selfPokemon, selfGender) : null;
+  const opponentSprite = opponentPokemon
+    ? spriteForGender(opponentPokemon, opponentGender)
+    : null;
 
   const theme = isDraw
     ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40"
@@ -82,21 +93,23 @@ export function GameOverBanner({ room, payload, selfSlot }: GameOverBannerProps)
           <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase">
             Your Pokémon
           </p>
-          {selfPokemon && (
+          {selfSprite && selfPokemon && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={selfPokemon.sprite} alt={selfPokemon.name} className="h-16 w-16" />
+            <img src={selfSprite} alt={selfPokemon.name} className="h-16 w-16" />
           )}
           <p className="text-sm font-semibold capitalize">{selfPokemon?.name ?? "…"}</p>
+          <p className="text-xs text-zinc-500">{formatPokemonGender(selfGender)}</p>
         </div>
         <div className="flex flex-col items-center gap-1 rounded-xl bg-white/60 p-3 dark:bg-black/20">
           <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase">
             Opponent&apos;s Pokémon
           </p>
-          {opponentPokemon && (
+          {opponentSprite && opponentPokemon && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={opponentPokemon.sprite} alt={opponentPokemon.name} className="h-16 w-16" />
+            <img src={opponentSprite} alt={opponentPokemon.name} className="h-16 w-16" />
           )}
           <p className="text-sm font-semibold capitalize">{opponentPokemon?.name ?? "…"}</p>
+          <p className="text-xs text-zinc-500">{formatPokemonGender(opponentGender)}</p>
         </div>
       </div>
     </section>

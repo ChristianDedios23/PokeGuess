@@ -1,5 +1,6 @@
 export type RoomStatus = "WAITING" | "ACTIVE" | "FINISHED" | "FORFEITED";
 export type TurnPlayer = "player1" | "player2";
+export type PokemonGender = "male" | "female" | "genderless";
 
 export interface PlayerGuess {
   pokemonId: number;
@@ -10,6 +11,7 @@ export interface RoomPlayer {
   connectionId: string;
   displayName: string;
   secretPokemonId: number;
+  secretGender: PokemonGender;
   connected: boolean;
   ready: boolean;
   playerTokenHash: string;
@@ -22,6 +24,8 @@ export interface GameRoom {
   roomCode: string;
   status: RoomStatus;
   board: number[];
+  /** Gender rolled for each board slot (same length/order as `board`). */
+  boardGenders: PokemonGender[];
   players: {
     player1?: RoomPlayer;
     player2?: RoomPlayer;

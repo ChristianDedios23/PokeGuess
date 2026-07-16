@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { BOARD_COLLECTIONS, type BoardTheme } from "@/lib/boardThemes";
 
 interface BoardThemePickerProps {
@@ -9,6 +9,9 @@ interface BoardThemePickerProps {
   onClose: () => void;
   onSelect: (index: number) => void;
   themes: BoardTheme[];
+  /** Clicks on this element are ignored by the outside-close handler (e.g. the Themes toggle). */
+  triggerRef?: RefObject<HTMLButtonElement | null>;
+  className?: string;
 }
 
 export function BoardThemePicker({
@@ -17,6 +20,8 @@ export function BoardThemePicker({
   onClose,
   onSelect,
   themes,
+  triggerRef,
+  className = "absolute top-0 right-0 z-30",
 }: BoardThemePickerProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
 
@@ -24,9 +29,10 @@ export function BoardThemePicker({
     if (!open) return;
 
     function handlePointerDown(event: MouseEvent) {
-      if (!panelRef.current?.contains(event.target as Node)) {
-        onClose();
-      }
+      const target = event.target as Node;
+      if (panelRef.current?.contains(target)) return;
+      if (triggerRef?.current?.contains(target)) return;
+      onClose();
     }
 
     function handleKeyDown(event: KeyboardEvent) {
@@ -39,7 +45,7 @@ export function BoardThemePicker({
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, onClose]);
+  }, [open, onClose, triggerRef]);
 
   if (!open) return null;
 
@@ -48,7 +54,7 @@ export function BoardThemePicker({
       ref={panelRef}
       role="dialog"
       aria-label="Board themes"
-      className="absolute top-0 right-0 z-30 flex max-h-full w-44 flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/95 shadow-xl backdrop-blur-md dark:border-zinc-700/80 dark:bg-zinc-900/95 sm:w-52"
+      className={`${className} flex max-h-[min(100%,28rem)] w-44 flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/95 shadow-xl backdrop-blur-md dark:border-zinc-700/80 dark:bg-zinc-900/95 sm:w-52`}
     >
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200/80 px-3 py-2 dark:border-zinc-700/80">
         <p className="text-xs font-semibold tracking-wide text-zinc-700 uppercase dark:text-zinc-200">

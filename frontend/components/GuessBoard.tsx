@@ -1,11 +1,12 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useState, type MouseEvent, type RefObject } from "react";
 import { Fredoka } from "next/font/google";
 import { BoardThemePicker } from "@/components/BoardThemePicker";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { BOARD_THEMES } from "@/lib/boardThemes";
-import { fetchPokemonCatalog, type PokemonSummary } from "@/lib/pokemon";
+import type { PokemonGender } from "@/lib/game";
+import { fetchPokemonCatalog, spriteForGender, type PokemonSummary } from "@/lib/pokemon";
 
 const fredoka = Fredoka({
   weight: ["500", "600", "700"],
@@ -31,9 +32,13 @@ interface GuessBoardProps {
   roomCode: string;
   selfSlot: "player1" | "player2";
   board: number[];
-  ownSecretPokemonId?: number;
+  boardGenders: PokemonGender[];
   disabled: boolean;
   onGuess: (pokemonId: number) => void;
+  onHoverPokemon?: (pokemonId: number | null, gender: PokemonGender | null) => void;
+  themePickerOpen: boolean;
+  onThemePickerOpenChange: (open: boolean) => void;
+  themesButtonRef: RefObject<HTMLButtonElement | null>;
 }
 
 function ruledOutKey(roomCode: string, selfSlot: string): string {
@@ -77,9 +82,13 @@ export function GuessBoard({
   roomCode,
   selfSlot,
   board,
-  ownSecretPokemonId,
+  boardGenders,
   disabled,
   onGuess,
+  onHoverPokemon,
+  themePickerOpen,
+  onThemePickerOpenChange,
+  themesButtonRef,
 }: GuessBoardProps) {
   const [catalog, setCatalog] = useState<Map<number, PokemonSummary> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -87,7 +96,6 @@ export function GuessBoard({
   const [selected, setSelected] = useState<number | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [wallpaperIndex, setWallpaperIndex] = useState(0);
-  const [themePickerOpen, setThemePickerOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,7 +144,7 @@ export function GuessBoard({
     };
   }, []);
 
-  const closeThemePicker = useCallback(() => setThemePickerOpen(false), []);
+  const closeThemePicker = useCallback(() => onThemePickerOpenChange(false), [onThemePickerOpenChange]);
 
   function toggleRuledOut(id: number) {
     if (disabled) return;
@@ -176,80 +184,32 @@ export function GuessBoard({
 
   const wallpaper = WALLPAPERS[wallpaperIndex];
   const gridRows = Math.ceil(board.length / GRID_COLUMNS);
-  const ownPokemon = ownSecretPokemonId !== undefined ? catalog?.get(ownSecretPokemonId) : undefined;
 
   return (
-    <section className={`${fredoka.variable} relative flex h-full min-h-0 w-full flex-col gap-1`}>
-      <div className="flex shrink-0 items-center justify-between gap-2">
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-          Click a Pokémon to rule it out. Use the target badge to line up your final &ldquo;Guess&rdquo;.
-        </p>
-        <button
-          type="button"
-          onClick={() => setThemePickerOpen((open) => !open)}
-          aria-expanded={themePickerOpen}
-          aria-haspopup="dialog"
-          style={{ fontFamily: "var(--font-fredoka)" }}
-          className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
-            themePickerOpen
-              ? "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
-              : "border-zinc-300 bg-white/80 text-zinc-700 hover:border-zinc-400 dark:border-zinc-600 dark:bg-zinc-900/80 dark:text-zinc-200 dark:hover:border-zinc-400"
-          }`}
-        >
-          Themes
-        </button>
-      </div>
-
+    <section className={`${fredoka.variable} relative flex h-full min-h-0 w-full flex-col`}>
       {loadError && (
         <p className="shrink-0 text-sm text-red-600 dark:text-red-400">{loadError}</p>
       )}
 
-      <div className="flex min-h-0 w-full flex-1 items-stretch gap-2 sm:gap-3">
-        <aside
-          aria-label="Your hidden Pokémon"
-          className="flex w-14 shrink-0 flex-col items-center justify-center gap-1.5 self-center rounded-2xl border border-zinc-200/80 bg-white/70 px-1 py-2.5 text-center shadow-sm backdrop-blur-sm dark:border-zinc-700/80 dark:bg-zinc-900/70 sm:w-20 sm:gap-2 sm:px-2 sm:py-3 md:w-24"
+      <div className="relative min-h-0 w-full flex-1" style={{ containerType: "size" }}>
+        <BoardThemePicker
+          open={themePickerOpen}
+          selectedId={wallpaper.id}
+          themes={WALLPAPERS}
+          onClose={closeThemePicker}
+          onSelect={selectWallpaper}
+          triggerRef={themesButtonRef}
+          className="fixed top-14 left-4 z-40 sm:left-6"
+        />
+
+        <div
+          className="absolute bottom-0 left-1/2 max-h-full max-w-full -translate-x-1/2 select-none"
+          style={{
+            aspectRatio: FRAME_ASPECT,
+            width: "min(100cqw, calc(100cqh * 840 / 710))",
+            height: "min(100cqh, calc(100cqw * 710 / 840))",
+          }}
         >
-          <span
-            style={{ fontFamily: "var(--font-fredoka)" }}
-            className="text-[8px] font-bold tracking-wide text-zinc-500 uppercase dark:text-zinc-400 sm:text-[9px]"
-          >
-            Yours
-          </span>
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_4px_rgba(0,0,0,0.25)] ring-2 ring-amber-400 dark:bg-zinc-800/90 sm:size-10 md:size-12">
-            {ownPokemon ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={ownPokemon.sprite}
-                alt={ownPokemon.name}
-                draggable={false}
-                className="size-[85%] object-contain"
-              />
-            ) : (
-              <div className="size-[60%] animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-700" />
-            )}
-          </div>
-          <span className="hidden truncate px-0.5 text-[9px] font-semibold text-zinc-700 capitalize dark:text-zinc-200 sm:block sm:text-[10px] md:text-xs">
-            {ownPokemon?.name ?? ""}
-          </span>
-        </aside>
-
-        <div className="relative min-h-0 w-full flex-1" style={{ containerType: "size" }}>
-          <BoardThemePicker
-            open={themePickerOpen}
-            selectedId={wallpaper.id}
-            themes={WALLPAPERS}
-            onClose={closeThemePicker}
-            onSelect={selectWallpaper}
-          />
-
-          <div
-            className="absolute top-1/2 left-1/2 max-h-full max-w-full -translate-x-1/2 -translate-y-1/2 select-none"
-            style={{
-              aspectRatio: FRAME_ASPECT,
-              width: "min(100cqw, calc(100cqh * 840 / 710))",
-              height: "min(100cqh, calc(100cqw * 710 / 840))",
-            }}
-          >
             {/* Board frame art (bezel, nav chrome and wallpaper baked in) */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -288,14 +248,16 @@ export function GuessBoard({
                     gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
                   }}
                 >
-                  {board.map((id) => {
+                  {board.map((id, index) => {
                     const pokemon = catalog?.get(id);
+                    const gender = boardGenders[index] ?? "genderless";
                     const isSelected = id === selected;
                     const isRuledOut = ruledOut.has(id);
+                    const sprite = pokemon ? spriteForGender(pokemon, gender) : null;
 
                     return (
                       <div
-                        key={id}
+                        key={`${id}-${index}`}
                         className="flex min-h-0 min-w-0 items-center justify-center"
                         style={{ containerType: "size" }}
                       >
@@ -303,6 +265,10 @@ export function GuessBoard({
                           role="button"
                           tabIndex={disabled ? -1 : 0}
                           onClick={() => toggleRuledOut(id)}
+                          onMouseEnter={() => onHoverPokemon?.(id, gender)}
+                          onMouseLeave={() => onHoverPokemon?.(null, null)}
+                          onFocus={() => onHoverPokemon?.(id, gender)}
+                          onBlur={() => onHoverPokemon?.(null, null)}
                           onKeyDown={(event) => {
                             if (!disabled && (event.key === "Enter" || event.key === " ")) {
                               event.preventDefault();
@@ -311,20 +277,20 @@ export function GuessBoard({
                           }}
                           aria-pressed={isRuledOut}
                           style={{
-                            width: "calc(min(100cqw, 100cqh) + 4px)",
-                            height: "calc(min(100cqw, 100cqh) + 4px)",
+                            width: "calc(min(100cqw, 100cqh) + 10px)",
+                            height: "calc(min(100cqw, 100cqh) + 10px)",
                           }}
-                          className={`group relative flex items-center justify-center rounded-full bg-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_4px_rgba(0,0,0,0.25)] ring-1 ring-black/10 backdrop-blur-[1px] transition-[transform,box-shadow] duration-200 ease-out motion-safe:hover:-translate-y-0.5 motion-safe:hover:scale-105 motion-safe:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_10px_rgba(0,0,0,0.3)] motion-safe:active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 dark:bg-zinc-800/85 ${
+                          className={`group relative flex origin-center items-center justify-center rounded-full bg-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_4px_rgba(0,0,0,0.25)] ring-1 ring-black/10 backdrop-blur-[1px] transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-safe:hover:-translate-y-1 motion-safe:hover:scale-110 motion-safe:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_10px_rgba(0,0,0,0.3)] motion-safe:active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 dark:bg-zinc-800/85 ${
                             isSelected ? "pcbox-selected ring-2 ring-amber-400" : ""
                           } ${disabled ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
                         >
-                          {pokemon ? (
+                          {sprite ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={pokemon.sprite}
-                              alt={pokemon.name}
+                              src={sprite}
+                              alt={pokemon?.name ?? String(id)}
                               draggable={false}
-                              className={`pointer-events-none block size-[calc(70%+4px)] shrink-0 object-contain object-center transition-[transform,filter,opacity] duration-200 motion-safe:group-hover:scale-110 ${
+                              className={`pointer-events-none block size-[calc(70%+4px)] shrink-0 object-contain object-center transition-[filter,opacity] duration-300 ${
                                 isRuledOut ? "opacity-45 grayscale" : ""
                               }`}
                             />
@@ -361,13 +327,17 @@ export function GuessBoard({
                                 ? `${pokemon?.name ?? id} selected`
                                 : `Guess ${pokemon?.name ?? id}`
                             }
-                            className={`absolute right-0 bottom-0 z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full border shadow-sm transition-transform duration-150 hover:scale-125 sm:h-4 sm:w-4 ${
-                              isSelected
-                                ? "border-amber-500 bg-amber-400 text-amber-950"
-                                : "border-black/10 bg-white text-zinc-400 hover:text-red-500 dark:border-white/10 dark:bg-zinc-700 dark:text-zinc-400"
-                            }`}
+                            className="group/guess absolute -right-1.5 -bottom-1.5 z-10 flex h-8 w-8 items-center justify-center rounded-full"
                           >
-                            <span className="block h-1.5 w-1.5 rounded-full bg-current sm:h-2 sm:w-2" />
+                            <span
+                              className={`flex h-4 w-4 items-center justify-center rounded-full border shadow-sm transition-transform duration-150 group-hover/guess:scale-110 sm:h-5 sm:w-5 ${
+                                isSelected
+                                  ? "border-amber-500 bg-amber-400 text-amber-950"
+                                  : "border-black/10 bg-white text-zinc-400 group-hover/guess:text-red-500 dark:border-white/10 dark:bg-zinc-700 dark:text-zinc-400"
+                              }`}
+                            >
+                              <span className="block h-1.5 w-1.5 rounded-full bg-current sm:h-2 sm:w-2" />
+                            </span>
                           </button>
                         </div>
                       </div>
@@ -376,23 +346,22 @@ export function GuessBoard({
                 </div>
               )}
             </div>
-          </div>
         </div>
       </div>
 
-      <div className="flex h-9 shrink-0 items-center justify-end">
-        {selected !== null && (
+      {selected !== null && (
+        <div className="pointer-events-none fixed bottom-4 left-1/2 z-30 -translate-x-1/2">
           <button
             type="button"
             onClick={handleGuessClick}
             disabled={disabled}
             style={{ fontFamily: "var(--font-fredoka)" }}
-            className="shrink-0 rounded-full bg-gradient-to-b from-red-500 to-red-600 px-4 py-2 text-xs font-bold text-white shadow-[0_3px_0_0_rgba(153,27,27,1),0_6px_10px_-2px_rgba(0,0,0,0.3)] transition hover:brightness-105 active:translate-y-[2px] active:shadow-[0_1px_0_0_rgba(153,27,27,1)] disabled:opacity-50"
+            className="pointer-events-auto shrink-0 rounded-full bg-gradient-to-b from-red-500 to-red-600 px-4 py-2 text-xs font-bold text-white shadow-[0_3px_0_0_rgba(153,27,27,1),0_6px_10px_-2px_rgba(0,0,0,0.3)] transition hover:brightness-105 active:translate-y-[2px] active:shadow-[0_1px_0_0_rgba(153,27,27,1)] disabled:opacity-50"
           >
             {confirming ? "Confirm final guess?" : "Submit guess"}
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   );
 }

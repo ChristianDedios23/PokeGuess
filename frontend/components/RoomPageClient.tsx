@@ -1,14 +1,16 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatPanel } from "@/components/ChatPanel";
 import { GameOverBanner } from "@/components/GameOverBanner";
 import { GuessBoard } from "@/components/GuessBoard";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { OpponentDisconnectBanner } from "@/components/OpponentDisconnectBanner";
+import { RoomCodeReveal } from "@/components/RoomCodeReveal";
 import { RoomLobby } from "@/components/RoomLobby";
-import type { ChatMessage, GameRoom, WsGameOver } from "@/lib/game";
+import { SecretPokemonPanel, YourPokemonCard } from "@/components/SecretPokemonPanel";
+import type { ChatMessage, GameRoom, PokemonGender, WsGameOver } from "@/lib/game";
 import { FORFEIT_GRACE_MS, joinRoom } from "@/lib/game";
 import { getSession, saveSession, type PlayerSession } from "@/lib/session";
 import { useRoomSocket } from "@/lib/useRoomSocket";
@@ -32,6 +34,10 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   } | null>(null);
   const [gameOver, setGameOver] = useState<WsGameOver | null>(null);
   const [confirmingForfeit, setConfirmingForfeit] = useState(false);
+  const [hoveredPokemonId, setHoveredPokemonId] = useState<number | null>(null);
+  const [hoveredGender, setHoveredGender] = useState<PokemonGender | null>(null);
+  const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const themesButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const hasSession = mounted && session?.roomCode === roomCode;
   const displayName = hasSession ? session!.displayName : "";
@@ -189,7 +195,12 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
 
   const gameActive = room?.status === "ACTIVE";
   const gameEnded = room?.status === "FINISHED" || room?.status === "FORFEITED";
+
+  useEffect(() => {
+    if (!gameActive) setThemePickerOpen(false);
+  }, [gameActive]);
   const ownSecretPokemonId = room?.players[selfSlot]?.secretPokemonId;
+  const ownSecretGender = room?.players[selfSlot]?.secretGender ?? "genderless";
   const hasGuessed = Boolean(room?.players[selfSlot]?.guess);
   const opponentSlot: "player1" | "player2" = selfSlot === "player1" ? "player2" : "player1";
   const opponentName = room?.players[opponentSlot]?.displayName ?? "your opponent";
@@ -277,20 +288,44 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     <div
       className={`mx-auto flex w-full flex-col ${
         gameActive
-          ? "relative h-full max-w-7xl overflow-hidden px-4 sm:px-6"
+          ? "relative h-full max-w-[100rem] overflow-hidden px-2 sm:px-4"
           : "max-w-2xl gap-6 p-6"
       }`}
     >
       <header
-        className={`flex flex-wrap items-start justify-between gap-2 ${
+        className={`z-20 gap-2 ${
           gameActive
-            ? "absolute top-0 right-0 left-0 z-20 px-4 py-2 sm:px-6"
-            : "shrink-0"
+            ? "absolute top-0 right-0 left-0 grid grid-cols-[1fr_auto_1fr] items-center px-4 py-2 sm:px-6"
+            : "flex shrink-0 flex-wrap items-start justify-between"
         }`}
       >
-        <div className="space-y-0.5">
-          <h1 className={`font-bold ${gameActive ? "text-lg" : "text-2xl"}`}>Room {roomCode}</h1>
-          {!gameActive && (
+        {gameActive ? (
+          <>
+            <div className="justify-self-start">
+              <button
+                ref={themesButtonRef}
+                type="button"
+                onClick={() => setThemePickerOpen((open) => !open)}
+                aria-expanded={themePickerOpen}
+                aria-haspopup="dialog"
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
+                  themePickerOpen
+                    ? "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
+                    : "border-zinc-300 bg-white/80 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                }`}
+              >
+                Themes
+              </button>
+            </div>
+            <RoomCodeReveal
+              roomCode={roomCode}
+              copyText={inviteUrl}
+              className="text-lg font-bold tracking-[0.25em] text-red-600 dark:text-red-500"
+            />
+          </>
+        ) : room?.status !== "WAITING" ? (
+          <div className="space-y-0.5">
+            <h1 className="text-2xl font-bold">Room {roomCode}</h1>
             <p className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
               <span
                 aria-hidden="true"
@@ -305,10 +340,27 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                   ? "Connecting…"
                   : "Offline"}
             </p>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="space-y-0.5">
+            <p className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
+              <span
+                aria-hidden="true"
+                className={`h-2 w-2 rounded-full ${statusDotColor}`}
+              />
+              Playing as {displayName}
+              {isHost ? " (Host)" : ""}
+              {" · "}
+              {status === "connected"
+                ? "Connected"
+                : status === "connecting"
+                  ? "Connecting…"
+                  : "Offline"}
+            </p>
+          </div>
+        )}
 
-        <div className="flex gap-2">
+        <div className={`flex gap-2 ${gameActive ? "justify-self-end" : ""}`}>
           {gameActive && !confirmingForfeit && (
             <button
               type="button"
@@ -408,8 +460,17 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
       )}
 
       {room && gameActive && (
-        <div className="flex h-full min-h-0 flex-col gap-3 pt-14 pb-2 lg:flex-row lg:items-center lg:gap-4">
-          <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col self-stretch">
+        <div className="flex h-full min-h-0 flex-col gap-2 pt-12 pb-1 lg:flex-row lg:items-center lg:justify-center lg:gap-1">
+          <div className="order-3 h-72 w-full shrink-0 self-center lg:order-1 lg:h-[82.5%] lg:w-60 xl:w-72">
+            <SecretPokemonPanel
+              className="h-full"
+              variant="inspectView"
+              hoveredPokemonId={hoveredPokemonId}
+              hoveredGender={hoveredGender}
+            />
+          </div>
+
+          <div className="order-1 flex min-h-0 min-w-0 w-full flex-1 flex-col self-stretch lg:order-2 lg:h-[82.5%] lg:self-center">
             {hasGuessed && (
               <p className="mb-2 w-full shrink-0 rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
                 You&apos;ve made your guess. Waiting for your opponent to make theirs…
@@ -420,14 +481,35 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 roomCode={roomCode}
                 selfSlot={selfSlot}
                 board={room.board}
-                ownSecretPokemonId={ownSecretPokemonId}
+                boardGenders={room.boardGenders ?? []}
                 disabled={!connectionId || hasGuessed}
                 onGuess={handleGuess}
+                onHoverPokemon={(pokemonId, gender) => {
+                  setHoveredPokemonId(pokemonId);
+                  setHoveredGender(gender);
+                }}
+                themePickerOpen={themePickerOpen}
+                onThemePickerOpenChange={setThemePickerOpen}
+                themesButtonRef={themesButtonRef}
               />
             </div>
+            <YourPokemonCard
+              className="mt-1 shrink-0"
+              pokemonId={ownSecretPokemonId}
+              secretGender={ownSecretGender}
+              onHover={(hovering) => {
+                if (hovering) {
+                  setHoveredPokemonId(ownSecretPokemonId ?? null);
+                  setHoveredGender(ownSecretGender);
+                } else {
+                  setHoveredPokemonId(null);
+                  setHoveredGender(null);
+                }
+              }}
+            />
           </div>
 
-          <div className="h-36 w-full shrink-0 self-center lg:h-[min(100%,36rem)] lg:w-72 xl:w-80">
+          <div className="order-2 h-36 w-full min-w-0 shrink-0 self-center lg:order-3 lg:h-[82.5%] lg:w-60 xl:w-72">
             <ChatPanel
               className="h-full"
               connectionId={connectionId}
@@ -435,7 +517,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
               selfConnectionId={connectionId}
               enabled={gameActive}
               isHost={isHost}
-              connectionStatus={status}
+              connectionStatus={status === "idle" ? "disconnected" : status}
               incomingMessage={incomingChat}
               sentConfirmation={sentConfirmation}
               onSendMessage={(message) => {

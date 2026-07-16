@@ -17,6 +17,15 @@ export type CachedPokemon = {
   id: number;
   name: string;
   sprite: string;
+  /** Female front sprite when it differs; null if unavailable. */
+  spriteFemale: string | null;
+  /**
+   * Species gender_rate from PokéAPI:
+   * -1 = genderless, 0 = always male, 8 = always female,
+   * 1–7 = female chance in eighths (e.g. 4 = 50%).
+   */
+  genderRate: number;
+  hasGenderDifferences: boolean;
   types: string[];
   abilities: string[];
 };
@@ -28,22 +37,42 @@ type PokeApiPokemon = {
   name: string;
   types: Array<{ type: { name: string } }>;
   abilities: Array<{ ability: { name: string } }>;
-  sprites: { front_default: string | null };
+  sprites: {
+    front_default: string | null;
+    front_female: string | null;
+  };
+};
+
+type PokeApiSpecies = {
+  gender_rate: number;
+  has_gender_differences: boolean;
 };
 
 async function fetchPokemon(id: number): Promise<CachedPokemon> {
-  const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+  const [pokemonRes, speciesRes] = await Promise.all([
+    fetch(`https://pokeapi.co/api/v2/pokemon/${id}`),
+    fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`),
+  ]);
 
-  if (!response.ok) {
-    throw new Error(`PokéAPI ${id} failed: ${response.status} ${response.statusText}`);
+  if (!pokemonRes.ok) {
+    throw new Error(`PokéAPI pokemon/${id} failed: ${pokemonRes.status} ${pokemonRes.statusText}`);
+  }
+  if (!speciesRes.ok) {
+    throw new Error(
+      `PokéAPI pokemon-species/${id} failed: ${speciesRes.status} ${speciesRes.statusText}`,
+    );
   }
 
-  const data = (await response.json()) as PokeApiPokemon;
+  const data = (await pokemonRes.json()) as PokeApiPokemon;
+  const species = (await speciesRes.json()) as PokeApiSpecies;
 
   return {
     id: data.id,
     name: data.name,
     sprite: data.sprites.front_default ?? `${SPRITE_BASE}/${data.id}.png`,
+    spriteFemale: data.sprites.front_female,
+    genderRate: species.gender_rate,
+    hasGenderDifferences: species.has_gender_differences,
     types: data.types.map((entry) => entry.type.name),
     abilities: data.abilities.map((entry) => entry.ability.name),
   };

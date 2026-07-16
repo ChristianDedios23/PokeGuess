@@ -1,9 +1,9 @@
 import { createHash, randomBytes, randomInt, timingSafeEqual } from "crypto";
 import { WebSocket } from "ws";
 import { env } from "../config/env";
-import { getAllPokemon } from "../data/pokemon";
+import { getAllPokemon, getPokemonById, rollGender } from "../data/pokemon";
 import { getRoom, saveRoom } from "../db/rooms";
-import type { GameRoom, RoomPlayer, TurnPlayer } from "../db/types";
+import type { GameRoom, PokemonGender, RoomPlayer, TurnPlayer } from "../db/types";
 import { GameError } from "../types/errors";
 import { broadcastToRoom, sendJson } from "../utils/websocket";
 import { attachPlayer, getConnectionEntry } from "./connectionRegistry";
@@ -28,21 +28,36 @@ function generateRoomCode(): string {
   return Array.from(bytes, (b) => ROOM_CODE_CHARS[b % ROOM_CODE_CHARS.length]).join("");
 }
 
-function pickBoard(size: number): number[] {
+function genderForPokemonId(pokemonId: number): PokemonGender {
+  const pokemon = getPokemonById(pokemonId);
+  return rollGender(pokemon?.genderRate ?? -1);
+}
+
+function pickBoard(size: number): { board: number[]; boardGenders: PokemonGender[] } {
   const pool = getAllPokemon().map((pokemon) => pokemon.id);
   const board: number[] = [];
+  const boardGenders: PokemonGender[] = [];
 
   for (let i = 0; i < size && pool.length > 0; i++) {
     const index = randomInt(0, pool.length);
-    board.push(pool[index]);
+    const pokemonId = pool[index];
+    board.push(pokemonId);
+    boardGenders.push(genderForPokemonId(pokemonId));
     pool.splice(index, 1);
   }
 
-  return board;
+  return { board, boardGenders };
 }
 
-function pickFromBoard(board: number[]): number {
-  return board[randomInt(0, board.length)];
+function pickSecretFromBoard(
+  board: number[],
+  boardGenders: PokemonGender[],
+): { secretPokemonId: number; secretGender: PokemonGender } {
+  const index = randomInt(0, board.length);
+  return {
+    secretPokemonId: board[index],
+    secretGender: boardGenders[index] ?? "genderless",
+  };
 }
 
 function generatePlayerToken(): string {
@@ -65,12 +80,14 @@ function tokensMatch(providedToken: string | undefined, expectedHash: string): b
 function createPlayer(
   displayName: string,
   secretPokemonId: number,
+  secretGender: PokemonGender,
   playerTokenHash: string,
 ): RoomPlayer {
   return {
     connectionId: "",
     displayName,
     secretPokemonId,
+    secretGender,
     connected: false,
     ready: false,
     playerTokenHash,
@@ -144,15 +161,22 @@ export async function createRoom(
   const normalizedName = normalizeDisplayName(displayName);
   const roomCode = await generateUniqueRoomCode();
   const now = new Date().toISOString();
-  const board = pickBoard(BOARD_SIZE);
+  const { board, boardGenders } = pickBoard(BOARD_SIZE);
   const playerToken = generatePlayerToken();
+  const secret = pickSecretFromBoard(board, boardGenders);
 
   const room: GameRoom = {
     roomCode,
     status: "WAITING",
     board,
+    boardGenders,
     players: {
-      player1: createPlayer(normalizedName, pickFromBoard(board), hashToken(playerToken)),
+      player1: createPlayer(
+        normalizedName,
+        secret.secretPokemonId,
+        secret.secretGender,
+        hashToken(playerToken),
+      ),
     },
     createdAt: now,
     updatedAt: now,
@@ -189,9 +213,11 @@ export async function joinRoom(
   }
 
   const playerToken = generatePlayerToken();
+  const secret = pickSecretFromBoard(room.board, room.boardGenders ?? []);
   room.players.player2 = createPlayer(
     normalizedName,
-    pickFromBoard(room.board),
+    secret.secretPokemonId,
+    secret.secretGender,
     hashToken(playerToken),
   );
   room.updatedAt = new Date().toISOString();
@@ -418,24 +444,29 @@ export async function requestRematch(connectionId: string): Promise<GameRoom> {
       return saved;
     }
 
-    const board = pickBoard(BOARD_SIZE);
+    const { board, boardGenders } = pickBoard(BOARD_SIZE);
+    const secret1 = pickSecretFromBoard(board, boardGenders);
+    const secret2 = pickSecretFromBoard(board, boardGenders);
     const rematchedRoom: GameRoom = {
       ...saved,
       status: "ACTIVE",
       board,
+      boardGenders,
       currentTurnPlayer: "player1",
       winner: undefined,
       updatedAt: new Date().toISOString(),
       players: {
         player1: {
           ...saved.players.player1!,
-          secretPokemonId: pickFromBoard(board),
+          secretPokemonId: secret1.secretPokemonId,
+          secretGender: secret1.secretGender,
           guess: undefined,
           rematchRequested: false,
         },
         player2: {
           ...saved.players.player2!,
-          secretPokemonId: pickFromBoard(board),
+          secretPokemonId: secret2.secretPokemonId,
+          secretGender: secret2.secretGender,
           guess: undefined,
           rematchRequested: false,
         },

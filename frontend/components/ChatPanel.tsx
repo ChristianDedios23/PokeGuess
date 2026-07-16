@@ -103,7 +103,7 @@ export function ChatPanel({
 
   return (
     <section
-      className={`flex min-h-0 flex-col rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 ${className}`}
+      className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 ${className}`}
     >
       <div className="shrink-0 border-b border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
         <h2 className="text-sm font-semibold">Chat</h2>
@@ -120,7 +120,10 @@ export function ChatPanel({
         {!enabled ? (
           <p className="text-sm text-zinc-500">Chat unlocks after the game starts.</p>
         ) : messages.length === 0 ? (
-          <p className="text-sm text-zinc-500">No messages yet. Ask a yes/no question!</p>
+          <div className="space-y-1 text-sm text-zinc-500">
+            <p>No messages yet.</p>
+            <p>Ask a yes/no question!</p>
+          </div>
         ) : (
           messages.map((message) => (
             <div
@@ -145,7 +148,7 @@ export function ChatPanel({
 
       <form
         onSubmit={handleSend}
-        className="flex shrink-0 gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800"
+        className="flex min-w-0 shrink-0 gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800"
       >
         <input
           ref={inputRef}
@@ -153,12 +156,12 @@ export function ChatPanel({
           onChange={(e) => setDraft(e.target.value)}
           placeholder={enabled ? "Send a message" : "Game not started"}
           disabled={!enabled || !connectionId}
-          className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950"
+          className="min-w-0 flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950"
         />
         <button
           type="submit"
           disabled={!enabled || !connectionId || sending || !draft.trim()}
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+          className="shrink-0 rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
         >
           Send
         </button>

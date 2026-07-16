@@ -36,12 +36,39 @@
 }
 
 body {
+  position: relative;
   background:
     radial-gradient(circle at top left, rgba(220, 38, 38, 0.08), transparent 45%),
     radial-gradient(circle at bottom right, rgba(250, 204, 21, 0.08), transparent 45%),
     var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Subtle film-grain texture over the themed page background.
+   Technique: https://ibelick.com/blog/create-grainy-backgrounds-with-css */
+body::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.12;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 600'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 182px;
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  body::before {
+    opacity: 0.09;
+  }
 }
 
 ::selection {
@@ -65,14 +92,18 @@ body {
 @keyframes pcbox-glow {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55);
+    box-shadow:
+      0 0 0 0 rgba(245, 158, 11, 0.85),
+      0 0 0 0 rgba(245, 158, 11, 0.4);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+    box-shadow:
+      0 0 0 7px rgba(245, 158, 11, 0),
+      0 0 0 16px rgba(245, 158, 11, 0);
   }
 }
 .pcbox-selected {
-  animation: pcbox-glow 1.6s ease-in-out infinite;
+  animation: pcbox-glow 1.3s ease-in-out infinite;
 }
 
 @keyframes pcbox-sticker-in {
