@@ -471,8 +471,8 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
       )}
 
       {room && gameActive && (
-        <div className="flex h-full min-h-0 flex-col gap-2 pt-12 pb-1 lg:flex-row lg:items-center lg:justify-center lg:gap-1">
-          <div className="order-3 h-72 w-full shrink-0 self-center lg:order-1 lg:mr-[-20px] lg:h-[82.5%] lg:w-[250px] xl:w-[298px]">
+        <div className="flex h-full min-h-0 flex-col gap-2 pt-12 pb-1 lg:flex-row lg:items-center lg:justify-center lg:gap-3">
+          <div className="order-3 h-72 w-full shrink-0 self-center lg:order-1 lg:h-[82.5%] lg:w-[250px] xl:w-[298px]">
             <SecretPokemonPanel
               className="h-full"
               variant="inspectView"
@@ -520,7 +520,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
             />
           </div>
 
-          <div className="order-2 h-36 w-full min-w-0 shrink-0 self-center lg:order-3 lg:ml-[-20px] lg:h-[82.5%] lg:w-[250px] xl:w-[298px]">
+          <div className="order-2 h-36 w-full min-w-0 shrink-0 self-center lg:order-3 lg:h-[82.5%] lg:w-[250px] xl:w-[298px]">
             <ChatPanel
               className="h-full"
               connectionId={connectionId}
