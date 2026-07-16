@@ -38,8 +38,8 @@
 body {
   position: relative;
   background:
-    radial-gradient(circle at top left, rgba(220, 38, 38, 0.08), transparent 45%),
-    radial-gradient(circle at bottom right, rgba(250, 204, 21, 0.08), transparent 45%),
+    radial-gradient(circle at top left, rgba(20, 161, 255, 0.08), transparent 45%),
+    radial-gradient(circle at bottom right, rgba(30, 253, 205, 0.08), transparent 45%),
     var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
@@ -164,6 +164,31 @@ body > * {
   animation-fill-mode: both;
 }
 
+.bg-grid-lines {
+  background-image:
+    linear-gradient(to right, rgba(24, 24, 27, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(24, 24, 27, 0.07) 1px, transparent 1px);
+  background-size: 44px 44px;
+  animation: grid-slide 20s linear infinite;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-grid-lines {
+    background-image:
+      linear-gradient(to right, rgba(244, 244, 245, 0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(244, 244, 245, 0.08) 1px, transparent 1px);
+  }
+}
+
+@keyframes grid-slide {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 44px 44px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pcbox-fade,
   .pcbox-selected,
@@ -173,5 +198,10 @@ body > * {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+
+  .bg-grid-lines {
+    /* Keep the static rotated-grid look, just drop the sliding motion. */
+    animation: none !important;
   }
 }
