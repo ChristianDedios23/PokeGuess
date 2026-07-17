@@ -71,6 +71,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   } | null>(null);
   const [gameOver, setGameOver] = useState<WsGameOver | null>(null);
   const [confirmingForfeit, setConfirmingForfeit] = useState(false);
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
   const [hoveredPokemonId, setHoveredPokemonId] = useState<number | null>(null);
   const [hoveredGender, setHoveredGender] = useState<PokemonGender | null>(null);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
@@ -214,6 +215,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   function handleForfeit() {
     if (!connectionId) return;
     if (!confirmingForfeit) {
+      setConfirmingLeave(false);
       setConfirmingForfeit(true);
       return;
     }
@@ -238,12 +240,18 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   }
 
   function handleLeave() {
+    setConfirmingLeave(false);
     try {
       send({ action: "leaveRoom" });
     } catch {
       // Not connected — nothing to notify the server about.
     }
     router.push("/");
+  }
+
+  function requestLeave() {
+    setConfirmingForfeit(false);
+    setConfirmingLeave(true);
   }
 
   const gameActive = room?.status === "ACTIVE";
@@ -499,7 +507,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
           {!gameEnded && (
             <button
               type="button"
-              onClick={handleLeave}
+              onClick={requestLeave}
               className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white/80 px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:hover:bg-zinc-800"
             >
               <FaDoorOpen className="size-3.5 shrink-0" aria-hidden="true" />
@@ -567,7 +575,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
       )}
 
       {room && gameActive && (
-        <div className="flex h-full min-h-0 flex-col gap-2 pt-12 pb-1 lg:flex-row lg:items-center lg:justify-center lg:gap-3">
+        <div className="flex h-full min-h-0 translate-y-8 flex-col gap-2 pt-12 pb-1 lg:flex-row lg:items-center lg:justify-center lg:gap-3">
           <div className="order-3 h-72 w-full shrink-0 self-center lg:order-1 lg:h-[82.5%] lg:w-[250px] xl:w-[298px]">
             <SecretPokemonPanel
               className="h-full"
@@ -579,7 +587,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
 
           <div className="relative order-1 flex min-h-0 min-w-0 w-full flex-1 flex-col self-stretch lg:order-2 lg:h-[82.5%] lg:self-center">
             <ScoreBar
-              className="pointer-events-none absolute right-0 bottom-full left-0 z-10 mb-2"
+              className="pointer-events-none absolute right-0 bottom-full left-0 z-10 mb-2 -translate-y-2"
               player1Name={room.players.player1?.displayName ?? "Player 1"}
               player2Name={room.players.player2?.displayName ?? "Player 2"}
               score1={score.player1}
@@ -672,7 +680,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
               </button>
               <button
                 type="button"
-                onClick={handleLeave}
+                onClick={requestLeave}
                 className="rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
               >
                 Back to main menu
@@ -687,6 +695,116 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
           <LoadingSpinner label="Connecting to room..." />
         </div>
       )}
+
+      <LeaveRoomModal
+        open={confirmingLeave}
+        onCancel={() => setConfirmingLeave(false)}
+        onConfirm={handleLeave}
+      />
+    </div>
+  );
+}
+
+function LeaveRoomModal({
+  open,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const [rendered, setRendered] = useState(open);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setRendered(true);
+      setVisible(false);
+      let secondFrame = 0;
+      const firstFrame = requestAnimationFrame(() => {
+        secondFrame = requestAnimationFrame(() => setVisible(true));
+      });
+      return () => {
+        cancelAnimationFrame(firstFrame);
+        cancelAnimationFrame(secondFrame);
+      };
+    }
+
+    setVisible(false);
+    const timeout = window.setTimeout(() => setRendered(false), 180);
+    return () => window.clearTimeout(timeout);
+  }, [open]);
+
+  useEffect(() => {
+    if (!rendered) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onCancel();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [rendered, onCancel]);
+
+  if (!rendered) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="leave-room-title"
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${
+        visible ? "" : "pointer-events-none"
+      }`}
+    >
+      <button
+        type="button"
+        aria-label="Cancel leaving room"
+        onClick={onCancel}
+        className="modal-scrim absolute inset-0 bg-black/55 outline-none ring-0 transition-[box-shadow] active:transform-none active:ring-1 active:ring-inset active:ring-white/25 focus-visible:outline-none"
+        style={{
+          opacity: visible ? 1 : 0,
+          transition: "opacity 180ms ease-out",
+        }}
+      />
+
+      <div
+        className="relative z-10 w-full max-w-sm rounded-2xl border border-zinc-500 bg-white p-6 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        style={{
+          opacity: visible ? 1 : 0,
+          transform: visible ? "translateY(0) scale(1)" : "translateY(4px) scale(0.99)",
+          transition: "opacity 180ms ease-out, transform 180ms ease-out",
+        }}
+      >
+        <h2
+          id="leave-room-title"
+          className="text-lg font-semibold text-zinc-900 dark:text-zinc-100"
+        >
+          Leave room?
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+          You’ll leave this match and return to the main menu. Your opponent will
+          see that you’ve disconnected.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            Stay
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+          >
+            <FaDoorOpen className="size-3.5 shrink-0" aria-hidden="true" />
+            Leave room
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

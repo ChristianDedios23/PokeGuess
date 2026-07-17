@@ -1,7 +1,13 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { HiSpeakerWave, HiSpeakerXMark } from "react-icons/hi2";
 import type { ChatMessage } from "@/lib/game";
+import {
+  isChatSoundMuted,
+  playChatMessageSound,
+  setChatSoundMuted,
+} from "@/lib/sounds";
 
 interface ChatPanelProps {
   connectionId: string | null;
@@ -32,8 +38,14 @@ export function ChatPanel({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [muted, setMuted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const lastPlayedSoundId = useRef<string | null>(null);
+
+  useEffect(() => {
+    setMuted(isChatSoundMuted());
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -45,7 +57,20 @@ export function ChatPanel({
       if (prev.some((m) => m.id === incomingMessage.id)) return prev;
       return [...prev, incomingMessage];
     });
+
+    if (!incomingMessage.isSelf && lastPlayedSoundId.current !== incomingMessage.id) {
+      lastPlayedSoundId.current = incomingMessage.id;
+      playChatMessageSound();
+    }
   }, [incomingMessage]);
+
+  function toggleMute() {
+    setMuted((prev) => {
+      const next = !prev;
+      setChatSoundMuted(next);
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (!sentConfirmation || !selfConnectionId) return;
@@ -105,15 +130,31 @@ export function ChatPanel({
     <section
       className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 ${className}`}
     >
-      <div className="shrink-0 border-b border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
-        <h2 className="text-sm font-semibold">Chat</h2>
-        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-          <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusDotColor}`} />
-          Playing as {selfDisplayName}
-          {isHost ? " (Host)" : ""}
-          {" · "}
-          {statusLabel}
-        </p>
+      <div className="flex shrink-0 items-start justify-between gap-2 border-b border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold">Chat</h2>
+          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+            <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusDotColor}`} />
+            Playing as {selfDisplayName}
+            {isHost ? " (Host)" : ""}
+            {" · "}
+            {statusLabel}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={toggleMute}
+          aria-label={muted ? "Unmute chat sounds" : "Mute chat sounds"}
+          aria-pressed={muted}
+          title={muted ? "Unmute chat sounds" : "Mute chat sounds"}
+          className="shrink-0 rounded-lg p-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+        >
+          {muted ? (
+            <HiSpeakerXMark className="size-4" aria-hidden="true" />
+          ) : (
+            <HiSpeakerWave className="size-4" aria-hidden="true" />
+          )}
+        </button>
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-3">

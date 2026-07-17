@@ -104,7 +104,7 @@ function BoardTile({
 
   return (
     <div
-      className="relative z-0 flex min-h-0 min-w-0 items-center justify-center hover:z-20 focus-within:z-20"
+      className="relative z-0 flex min-h-0 min-w-0 -translate-y-[4px] items-center justify-center hover:z-20 focus-within:z-20"
       style={{ containerType: "size" }}
     >
       <div

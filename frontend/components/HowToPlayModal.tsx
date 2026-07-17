@@ -62,7 +62,7 @@ export function GameInfoModal({ panel, onClose }: GameInfoModalProps) {
         type="button"
         aria-label={`Close ${title.toLowerCase()}`}
         onClick={onClose}
-        className="absolute inset-0 bg-black/55 active:scale-100"
+        className="modal-scrim absolute inset-0 bg-black/55 outline-none ring-0 transition-[box-shadow] active:transform-none active:ring-1 active:ring-inset active:ring-white/25 focus-visible:outline-none"
         style={{
           opacity: visible ? 1 : 0,
           transition: "opacity 180ms ease-out",

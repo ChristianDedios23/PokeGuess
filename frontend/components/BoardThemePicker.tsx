@@ -31,6 +31,9 @@ export function BoardThemePicker({
   const activeCollection =
     BOARD_COLLECTIONS.find((collection) => collection.id === activeCollectionId) ??
     BOARD_COLLECTIONS[0];
+  const activeTabIndex = BOARD_COLLECTIONS.findIndex(
+    (collection) => collection.id === activeCollection?.id,
+  );
 
   useEffect(() => {
     if (open) {
@@ -81,7 +84,7 @@ export function BoardThemePicker({
         type="button"
         aria-label="Close themes"
         onClick={onClose}
-        className="absolute inset-0 bg-black/55 active:scale-100"
+        className="modal-scrim absolute inset-0 bg-black/55 outline-none ring-0 transition-[box-shadow] active:transform-none active:ring-1 active:ring-inset active:ring-white/25 focus-visible:outline-none"
         style={{
           opacity: visible ? 1 : 0,
           transition: "opacity 180ms ease-out",
@@ -116,7 +119,7 @@ export function BoardThemePicker({
         <div
           role="tablist"
           aria-label="Pokémon game"
-          className="grid shrink-0 grid-cols-4 border-b border-zinc-200 px-3 pt-2 dark:border-zinc-700"
+          className="relative grid shrink-0 grid-cols-4 border-b border-zinc-200 px-3 pt-2 dark:border-zinc-700"
         >
           {BOARD_COLLECTIONS.map((collection) => {
             const active = collection.id === activeCollection?.id;
@@ -137,16 +140,24 @@ export function BoardThemePicker({
                 aria-selected={active}
                 title={collection.label}
                 onClick={() => setActiveCollectionId(collection.id)}
-                className={`border-b-2 px-1 py-2.5 text-xs font-semibold transition ${
+                className={`relative z-10 px-1 py-2.5 text-xs font-semibold transition-colors duration-200 ${
                   active
-                    ? "border-amber-500 text-amber-700 dark:text-amber-300"
-                    : "border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-800 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-100"
+                    ? "text-amber-700 dark:text-amber-300"
+                    : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100"
                 }`}
               >
                 {shortLabel}
               </button>
             );
           })}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-0 left-3 h-0.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.45)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] dark:bg-amber-400"
+            style={{
+              width: `calc((100% - 1.5rem) / ${BOARD_COLLECTIONS.length})`,
+              transform: `translateX(${Math.max(0, activeTabIndex) * 100}%)`,
+            }}
+          />
         </div>
 
         <div
@@ -154,7 +165,10 @@ export function BoardThemePicker({
           aria-label={activeCollection?.label}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4"
         >
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div
+            key={activeCollection?.id}
+            className="theme-tab-panel grid grid-cols-2 gap-3 sm:grid-cols-3"
+          >
             {activeCollection?.themes.map((theme) => {
               const index = themes.findIndex((entry) => entry.id === theme.id);
               const selected = theme.id === selectedId;

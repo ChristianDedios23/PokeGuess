@@ -10,8 +10,14 @@
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  button:not(:disabled):active {
+  button:not(:disabled):active:not(.modal-scrim) {
     transform: scale(0.96);
+  }
+
+  /* Full-viewport modal backdrops: no press-scale (that left a thick
+     uneven edge glow). Thin inset ring instead while held. */
+  button.modal-scrim:active {
+    transform: none;
   }
 }
 
@@ -29,6 +35,16 @@
   --color-surface-border: var(--surface-border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --animate-bg-position: bg-position 3s infinite alternate;
+}
+
+@keyframes bg-position {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -206,12 +222,28 @@ body > * {
   }
 }
 
+@keyframes theme-tab-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.theme-tab-panel {
+  animation: theme-tab-panel-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pcbox-fade,
   .pcbox-selected,
   .pcbox-sticker,
   .reveal-letter,
-  .slide-reveal {
+  .slide-reveal,
+  .theme-tab-panel {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
@@ -224,5 +256,9 @@ body > * {
 
   button:active {
     transform: none !important;
+  }
+
+  .animate-bg-position {
+    animation: none !important;
   }
 }

@@ -28,6 +28,10 @@ const MANUAL_SCALE_OVERRIDES: Record<number, number> = {
   707: 0.95, // Klefki
   950: 0.80, // Klawf
   586: 0.90, // Sawsbuck
+  542: 0.90, // Leavanny
+  169: 0.90, // Crobat
+  847: 0.75, // Barraskewda
+  698: 0.90, // Amaura
 };
 
 // Manual position nudges for sprites whose art sits off-center in the PNG
@@ -35,6 +39,7 @@ const MANUAL_SCALE_OVERRIDES: Record<number, number> = {
 // percentages of the sprite element's size: negative y = shift up.
 const MANUAL_OFFSET_OVERRIDES: Record<number, { x?: number; y?: number }> = {
   946: { y: -28 }, // Bramblin
+  169: { y: 10 }, // Crobat
 };
 
 export interface SpriteTransform {
