@@ -59,7 +59,6 @@ export function YourPokemonCard({
   onHover?: (hovering: boolean) => void;
 }) {
   const { catalog, error } = usePokemonCatalog();
-  const [hidden, setHidden] = useState(false);
 
   const ownPokemon = pokemonId !== undefined ? (catalog?.get(pokemonId) ?? null) : null;
 
@@ -81,13 +80,8 @@ export function YourPokemonCard({
           gender={secretGender}
           sizeClass="size-12"
           ringClass="ring-2 ring-amber-400"
-          blurred={hidden}
-          interactive
-          onClick={() => setHidden((value) => !value)}
           onMouseEnter={() => onHover?.(true)}
           onMouseLeave={() => onHover?.(false)}
-          onFocus={() => onHover?.(true)}
-          onBlur={() => onHover?.(false)}
         />
       )}
     </section>
@@ -99,69 +93,39 @@ function PokemonCircle({
   gender,
   sizeClass = "size-24 sm:size-28",
   ringClass = "ring-2 ring-amber-400",
-  blurred = false,
-  interactive = false,
-  onClick,
   onMouseEnter,
   onMouseLeave,
-  onFocus,
-  onBlur,
 }: {
   pokemon: PokemonSummary | null;
   gender?: PokemonGender | null;
   sizeClass?: string;
   ringClass?: string;
-  blurred?: boolean;
-  interactive?: boolean;
-  onClick?: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
-  onFocus?: () => void;
-  onBlur?: () => void;
 }) {
   const sprite = pokemon ? spriteForGender(pokemon, gender) : null;
   const spriteTransform = useSpriteScale(sprite, pokemon?.id);
 
-  const content = (
-    <>
-      {sprite ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={sprite}
-          alt={blurred ? "" : pokemon?.name}
-          draggable={false}
-          style={spriteTransformStyle(spriteTransform, blurred ? 1.1 : 1)}
-          className={`size-[80%] object-contain transition-[filter,transform] duration-300 ${
-            blurred ? "blur-lg" : ""
-          }`}
-        />
-      ) : (
-        <div className="size-[55%] animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-700" />
-      )}
-    </>
+  const content = sprite ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={sprite}
+      alt={pokemon?.name}
+      draggable={false}
+      style={spriteTransformStyle(spriteTransform)}
+      className="size-[80%] object-contain"
+    />
+  ) : (
+    <div className="size-[55%] animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-700" />
   );
 
   const sharedClass = `flex items-center justify-center overflow-hidden rounded-full bg-zinc-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_4px_12px_rgba(0,0,0,0.12)] dark:bg-zinc-800 ${sizeClass} ${ringClass}`;
 
-  if (interactive) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-        onFocus={onFocus}
-        onBlur={onBlur}
-        aria-pressed={blurred}
-        aria-label={blurred ? "Show your Pokémon" : "Hide your Pokémon"}
-        className={`${sharedClass} cursor-pointer transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2`}
-      >
-        {content}
-      </button>
-    );
-  }
-
-  return <div className={sharedClass}>{content}</div>;
+  return (
+    <div className={sharedClass} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+      {content}
+    </div>
+  );
 }
 
 export function SecretPokemonPanel({

@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+/* Baseline "held down" feedback for every button. Components can still
+   layer their own active: utilities on top (or override transform/scale
+   entirely) since utilities sit in a higher-priority layer than this one. */
+@layer components {
+  button:not(:disabled) {
+    transition-property: transform;
+    transition-duration: 120ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  button:not(:disabled):active {
+    transform: scale(0.96);
+  }
+}
+
 :root {
   --background: #fafaf9;
   --foreground: #18181b;
@@ -205,5 +220,9 @@ body > * {
   .bg-grid-lines {
     /* Keep the static rotated-grid look, just drop the sliding motion. */
     animation: none !important;
+  }
+
+  button:active {
+    transform: none !important;
   }
 }

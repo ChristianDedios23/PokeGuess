@@ -29,7 +29,7 @@ export function GameInfoModal({ panel, onClose }: GameInfoModalProps) {
     }
 
     setVisible(false);
-    const timeout = window.setTimeout(() => setRenderedPanel(null), 500);
+    const timeout = window.setTimeout(() => setRenderedPanel(null), 180);
     return () => window.clearTimeout(timeout);
   }, [panel]);
 
@@ -62,13 +62,10 @@ export function GameInfoModal({ panel, onClose }: GameInfoModalProps) {
         type="button"
         aria-label={`Close ${title.toLowerCase()}`}
         onClick={onClose}
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-black/55 active:scale-100"
         style={{
           opacity: visible ? 1 : 0,
-          backdropFilter: visible ? "blur(4px)" : "blur(0px)",
-          WebkitBackdropFilter: visible ? "blur(4px)" : "blur(0px)",
-          transition:
-            "opacity 500ms ease-out, backdrop-filter 500ms ease-out, -webkit-backdrop-filter 500ms ease-out",
+          transition: "opacity 180ms ease-out",
         }}
       />
 
@@ -77,7 +74,7 @@ export function GameInfoModal({ panel, onClose }: GameInfoModalProps) {
         style={{
           opacity: visible ? 1 : 0,
           transform: visible ? "translateY(0) scale(1)" : "translateY(4px) scale(0.99)",
-          transition: "opacity 500ms ease-out, transform 500ms ease-out",
+          transition: "opacity 180ms ease-out, transform 180ms ease-out",
         }}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
@@ -103,13 +100,17 @@ export function GameInfoModal({ panel, onClose }: GameInfoModalProps) {
           ) : (
             <>
               <div>
-                <strong>Objective:</strong>
+                <strong className="font-semibold text-amber-600 dark:text-amber-400">
+                  Objective:
+                </strong>
                 <ul>
                   <li>- Guess your opponent's Pokémon before they guess yours.</li>
                 </ul>
               </div>
               <div>
-                <strong>Setup:</strong>
+                <strong className="font-semibold text-amber-600 dark:text-amber-400">
+                  Setup:
+                </strong>
                 <ul>
                   <li>- Both players receive the same 30 Pokémon to guess from.</li>
                   <li>- Each player receives a random Pokémon their opponent must guess.</li>
@@ -117,7 +118,9 @@ export function GameInfoModal({ panel, onClose }: GameInfoModalProps) {
                 </ul>
               </div>
               <div>
-                <strong>Taking Turns:</strong>
+                <strong className="font-semibold text-amber-600 dark:text-amber-400">
+                  Taking Turns:
+                </strong>
                 <ul>
                   <li>- Players take turns asking yes/no questions to help narrow down the possible Pokémon.</li>
                   <li>- After a question is asked, the player who asked the question gets to eliminate Pokémon that are not relevant to the answer.</li>
@@ -125,7 +128,9 @@ export function GameInfoModal({ panel, onClose }: GameInfoModalProps) {
                 </ul>
               </div>
               <div>
-                <strong>Winning:</strong>
+                <strong className="font-semibold text-amber-600 dark:text-amber-400">
+                  Winning:
+                </strong>
                 <ul>
                   <li>- Whenever a player has the chance to ask a question, they could instead choose to guess the opponent's Pokémon.</li>
                   <li>- If the guess is correct, the player wins the game, otherwise they immediately lose the game.</li>

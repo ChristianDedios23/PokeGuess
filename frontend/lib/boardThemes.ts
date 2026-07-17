@@ -15,7 +15,34 @@ export interface BoardCollection {
   themes: BoardTheme[];
 }
 
-const DEFAULT_PAGE_BG = { light: "#eef2ee", dark: "#101410" };
+// Derives a subtle page-background pair from a theme's accent color so the
+// page tint actually shifts with the selected board instead of staying flat.
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  const value = clean.length === 3
+    ? clean.split("").map((c) => c + c).join("")
+    : clean;
+  const num = parseInt(value, 16);
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+
+function mix(hex: string, target: [number, number, number], amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const [tr, tg, tb] = target;
+  const mixed = [
+    Math.round(r + (tr - r) * amount),
+    Math.round(g + (tg - g) * amount),
+    Math.round(b + (tb - b) * amount),
+  ];
+  return `#${mixed.map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function pageBackgroundForAccent(accent: string): { light: string; dark: string } {
+  return {
+    light: mix(accent, [255, 255, 255], 0.88),
+    dark: mix(accent, [10, 10, 12], 0.82),
+  };
+}
 
 // Shared Scenery + Misc wallpapers (boxes 1–16) used across Gen IV and Gen V.
 // Names from Bulbapedia: https://bulbapedia.bulbagarden.net/wiki/Wallpaper#Generation_IV
@@ -38,24 +65,52 @@ const SHARED_WALLPAPER_NAMES = [
   "Simple",
 ] as const;
 
-const SHARED_WALLPAPER_ACCENTS = [
-  "#2f5233",
-  "#4a5568",
-  "#c4a35a",
-  "#8b7355",
-  "#6b6b6b",
-  "#c45c2a",
-  "#7eb8d8",
-  "#4a4a5c",
-  "#f0c878",
-  "#3d8b9e",
-  "#4a90a4",
-  "#87ceeb",
-  "#9ca3af",
-  "#e53e3e",
-  "#718096",
-  "#a0aec0",
+// Accents below are sampled directly from each board image's picture area
+// (scripts/sample-board-accents.mjs), not hand-guessed — several names are
+// reused across generations (e.g. "Machine", "Simple", "Trio") but the art
+// underneath differs per game, so each collection gets its own real values
+// instead of sharing one array by label.
+const DP_SHARED_ACCENTS = [
+  "#89c881",
+  "#b7b7b7",
+  "#d2ca84",
+  "#b8b062",
+  "#bca2d9",
+  "#e5927e",
+  "#d3e6f0",
+  "#c4b2a2",
+  "#e7cca7",
+  "#5b7bdb",
+  "#83e2e8",
+  "#aadef0",
+  "#f697e3",
+  "#f8d297",
+  "#b2c2b5",
+  "#dbf4b6",
 ];
+
+const PLATINUM_SHARED_ACCENTS = [...DP_SHARED_ACCENTS];
+
+const BW_SHARED_ACCENTS = [
+  "#89c881",
+  "#b7b7b7",
+  "#d2ca84",
+  "#b8b062",
+  "#bca2d9",
+  "#e5927e",
+  "#d3e6f0",
+  "#c4b2a2",
+  "#e7cda7",
+  "#5b7bdb",
+  "#84e2e9",
+  "#a9def0",
+  "#87d8f6",
+  "#cad2da",
+  "#d64950",
+  "#e4ecf4",
+];
+
+const BW2_SHARED_ACCENTS = [...BW_SHARED_ACCENTS];
 
 function boardPath(folder: string, fileName: string): string {
   return encodeURI(`/${folder}/${fileName}`);
@@ -65,15 +120,17 @@ function sharedWallpapers(
   collectionId: string,
   folder: string,
   filePrefix: string,
+  accents: string[],
 ): BoardTheme[] {
   return SHARED_WALLPAPER_NAMES.map((label, index) => {
     const box = index + 1;
+    const accent = accents[index];
     return {
       id: `${collectionId}-box-${box}`,
       label,
       file: boardPath(folder, `${filePrefix} Box ${box}.png`),
-      accent: SHARED_WALLPAPER_ACCENTS[index],
-      pageBackground: DEFAULT_PAGE_BG,
+      accent,
+      pageBackground: pageBackgroundForAccent(accent),
     };
   });
 }
@@ -88,12 +145,13 @@ function specialWallpapers(
 ): BoardTheme[] {
   return labels.map((label, index) => {
     const box = startBox + index;
+    const accent = accents?.[index] ?? "#4a5568";
     return {
       id: `${collectionId}-box-${box}`,
       label,
       file: boardPath(folder, `${filePrefix} Box ${box}.png`),
-      accent: accents?.[index] ?? "#4a5568",
-      pageBackground: DEFAULT_PAGE_BG,
+      accent,
+      pageBackground: pageBackgroundForAccent(accent),
     };
   });
 }
@@ -110,14 +168,14 @@ const BW_SPECIAL = [
 ] as const;
 
 const BW_SPECIAL_ACCENTS = [
-  "#c04040",
-  "#30b8d8",
-  "#6b7280",
-  "#7c3aed",
-  "#f472b6",
-  "#1f2937",
-  "#4b5563",
-  "#ec4899",
+  "#ececec",
+  "#444444",
+  "#a0a0a0",
+  "#55689c",
+  "#f4d0ed",
+  "#763e43",
+  "#bec1ad",
+  "#8f3959",
 ];
 
 const BW2_SPECIAL = [
@@ -132,14 +190,14 @@ const BW2_SPECIAL = [
 ] as const;
 
 const BW2_SPECIAL_ACCENTS = [
-  "#6b7280",
-  "#7c3aed",
-  "#b45309",
-  "#2563eb",
-  "#111827",
-  "#e5e7eb",
-  "#c04040",
-  "#30b8d8",
+  "#878787",
+  "#8d9694",
+  "#e4e0ba",
+  "#b0aeba",
+  "#434b52",
+  "#bfbdbb",
+  "#dca498",
+  "#095b70",
 ];
 
 const DP_SPECIAL = [
@@ -154,14 +212,14 @@ const DP_SPECIAL = [
 ] as const;
 
 const DP_SPECIAL_ACCENTS = [
-  "#312e81",
-  "#65a30d",
-  "#d97706",
-  "#ef4444",
-  "#0d9488",
-  "#facc15",
-  "#6366f1",
-  "#7c3aed",
+  "#6b6d96",
+  "#97c492",
+  "#b6c9aa",
+  "#f3b379",
+  "#ed95dc",
+  "#e0cc77",
+  "#9962e2",
+  "#8bb5d8",
 ];
 
 const PLATINUM_SPECIAL = [
@@ -176,14 +234,14 @@ const PLATINUM_SPECIAL = [
 ] as const;
 
 const PLATINUM_SPECIAL_ACCENTS = [
-  "#4c1d95",
-  "#db2777",
-  "#d97706",
-  "#7c2d12",
-  "#0d9488",
-  "#facc15",
-  "#6366f1",
-  "#7c3aed",
+  "#5761b9",
+  "#c4af9b",
+  "#cda6a8",
+  "#9798c7",
+  "#a5d5a9",
+  "#e2ca78",
+  "#704649",
+  "#67849b",
 ];
 
 export const BOARD_COLLECTIONS: BoardCollection[] = [
@@ -191,7 +249,7 @@ export const BOARD_COLLECTIONS: BoardCollection[] = [
     id: "dp",
     label: "Diamond & Pearl",
     themes: [
-      ...sharedWallpapers("dp", "DP Boards", "DP"),
+      ...sharedWallpapers("dp", "DP Boards", "DP", DP_SHARED_ACCENTS),
       ...specialWallpapers("dp", "DP Boards", "DP", [...DP_SPECIAL], [...DP_SPECIAL_ACCENTS]),
     ],
   },
@@ -199,7 +257,7 @@ export const BOARD_COLLECTIONS: BoardCollection[] = [
     id: "platinum",
     label: "Platinum",
     themes: [
-      ...sharedWallpapers("platinum", "Platinum Boards", "Platinum"),
+      ...sharedWallpapers("platinum", "Platinum Boards", "Platinum", PLATINUM_SHARED_ACCENTS),
       ...specialWallpapers(
         "platinum",
         "Platinum Boards",
@@ -213,7 +271,7 @@ export const BOARD_COLLECTIONS: BoardCollection[] = [
     id: "bw",
     label: "Black & White",
     themes: [
-      ...sharedWallpapers("bw", "BW Boards", "BW"),
+      ...sharedWallpapers("bw", "BW Boards", "BW", BW_SHARED_ACCENTS),
       ...specialWallpapers("bw", "BW Boards", "BW", [...BW_SPECIAL], [...BW_SPECIAL_ACCENTS]),
     ],
   },
@@ -221,7 +279,7 @@ export const BOARD_COLLECTIONS: BoardCollection[] = [
     id: "bw2",
     label: "Black 2 & White 2",
     themes: [
-      ...sharedWallpapers("bw2", "BW2 Boards", "BW2"),
+      ...sharedWallpapers("bw2", "BW2 Boards", "BW2", BW2_SHARED_ACCENTS),
       ...specialWallpapers("bw2", "BW2 Boards", "BW2", [...BW2_SPECIAL], [...BW2_SPECIAL_ACCENTS]),
     ],
   },

@@ -325,7 +325,7 @@ export function GuessBoard({
         />
 
         <div
-          className="absolute bottom-0 left-1/2 max-h-full max-w-full -translate-x-1/2 select-none"
+          className="absolute bottom-0 left-1/2 max-h-full max-w-full -translate-x-1/2 select-none ring-2 ring-zinc-300/80 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.35)] dark:ring-zinc-700/70"
           style={{
             aspectRatio: FRAME_ASPECT,
             width: "min(100cqw, calc(100cqh * 840 / 710))",

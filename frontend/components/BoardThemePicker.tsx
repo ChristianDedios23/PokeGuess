@@ -51,7 +51,7 @@ export function BoardThemePicker({
     }
 
     setVisible(false);
-    const timeout = window.setTimeout(() => setRendered(false), 500);
+    const timeout = window.setTimeout(() => setRendered(false), 180);
     return () => window.clearTimeout(timeout);
   }, [open, selectedId]);
 
@@ -81,13 +81,10 @@ export function BoardThemePicker({
         type="button"
         aria-label="Close themes"
         onClick={onClose}
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-black/55 active:scale-100"
         style={{
           opacity: visible ? 1 : 0,
-          backdropFilter: visible ? "blur(4px)" : "blur(0px)",
-          WebkitBackdropFilter: visible ? "blur(4px)" : "blur(0px)",
-          transition:
-            "opacity 500ms ease-out, backdrop-filter 500ms ease-out, -webkit-backdrop-filter 500ms ease-out",
+          transition: "opacity 180ms ease-out",
         }}
       />
 
@@ -96,7 +93,7 @@ export function BoardThemePicker({
         style={{
           opacity: visible ? 1 : 0,
           transform: visible ? "translateY(0) scale(1)" : "translateY(4px) scale(0.99)",
-          transition: "opacity 500ms ease-out, transform 500ms ease-out",
+          transition: "opacity 180ms ease-out, transform 180ms ease-out",
         }}
       >
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-zinc-200 px-5 py-4 dark:border-zinc-700">
