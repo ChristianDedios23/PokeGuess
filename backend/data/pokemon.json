@@ -12144,7 +12144,7 @@
   },
   {
     "id": 678,
-    "name": "meowstic-male",
+    "name": "meowstic",
     "sprite": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/678.png",
     "spriteFemale": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/female/678.png",
     "genderRate": 4,

@@ -12,7 +12,7 @@ import {
 import { formatGeneration } from "@/lib/pokemonGenerations";
 import { pokemonTypeIconSrc } from "@/lib/pokemonTypes";
 import { formatHeight, formatWeight } from "@/lib/pokemonUnits";
-import { useSpriteScale } from "@/lib/useSpriteScale";
+import { spriteTransformStyle, useSpriteScale } from "@/lib/useSpriteScale";
 
 interface SecretPokemonPanelProps {
   pokemonId?: number;
@@ -120,7 +120,7 @@ function PokemonCircle({
   onBlur?: () => void;
 }) {
   const sprite = pokemon ? spriteForGender(pokemon, gender) : null;
-  const spriteScale = useSpriteScale(sprite, pokemon?.id);
+  const spriteTransform = useSpriteScale(sprite, pokemon?.id);
 
   const content = (
     <>
@@ -130,7 +130,7 @@ function PokemonCircle({
           src={sprite}
           alt={blurred ? "" : pokemon?.name}
           draggable={false}
-          style={{ transform: `scale(${blurred ? spriteScale * 1.1 : spriteScale})` }}
+          style={spriteTransformStyle(spriteTransform, blurred ? 1.1 : 1)}
           className={`size-[80%] object-contain transition-[filter,transform] duration-300 ${
             blurred ? "blur-lg" : ""
           }`}
@@ -181,7 +181,7 @@ export function SecretPokemonPanel({
   const detailSprite = inspectedPokemon
     ? spriteForGender(inspectedPokemon, inspectGender)
     : null;
-  const detailSpriteScale = useSpriteScale(detailSprite, inspectedPokemon?.id);
+  const detailSpriteTransform = useSpriteScale(detailSprite, inspectedPokemon?.id);
 
   const rootRows =
     variant === "inspectView"
@@ -334,7 +334,7 @@ export function SecretPokemonPanel({
               src={detailSprite}
               alt={inspectedPokemon.name}
               draggable={false}
-              style={{ transform: `scale(${detailSpriteScale})` }}
+              style={spriteTransformStyle(detailSpriteTransform)}
               className="h-[90%] w-[90%] object-contain drop-shadow-sm"
             />
           ) : (

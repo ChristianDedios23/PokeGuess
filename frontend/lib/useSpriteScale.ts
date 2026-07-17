@@ -30,6 +30,21 @@ const MANUAL_SCALE_OVERRIDES: Record<number, number> = {
   586: 0.90, // Sawsbuck
 };
 
+// Manual position nudges for sprites whose art sits off-center in the PNG
+// (e.g. Bramblin's tumbleweed is drawn low on the canvas). Values are
+// percentages of the sprite element's size: negative y = shift up.
+const MANUAL_OFFSET_OVERRIDES: Record<number, { x?: number; y?: number }> = {
+  946: { y: -28 }, // Bramblin
+};
+
+export interface SpriteTransform {
+  scale: number;
+  /** Horizontal nudge as a % of the sprite element width. */
+  offsetX: number;
+  /** Vertical nudge as a % of the sprite element height. Negative = up. */
+  offsetY: number;
+}
+
 const scaleCache = new Map<string, number>();
 const pendingScans = new Map<string, Promise<number>>();
 
@@ -104,12 +119,31 @@ function measureBoundingBoxScale(image: HTMLImageElement): number {
   }
 }
 
+/** Builds a CSS transform that applies scale + optional position nudge. */
+export function spriteTransformStyle(
+  { scale, offsetX, offsetY }: SpriteTransform,
+  scaleMultiplier = 1,
+): { transform: string } {
+  const finalScale = scale * scaleMultiplier;
+  if (offsetX === 0 && offsetY === 0) {
+    return { transform: `scale(${finalScale})` };
+  }
+  return {
+    transform: `translate(${offsetX}%, ${offsetY}%) scale(${finalScale})`,
+  };
+}
+
 export function useSpriteScale(
   url: string | null | undefined,
   pokemonId?: number | null,
-): number {
-  const override =
+): SpriteTransform {
+  const scaleOverride =
     pokemonId != null ? MANUAL_SCALE_OVERRIDES[pokemonId] ?? 1 : 1;
+  const offset =
+    pokemonId != null ? MANUAL_OFFSET_OVERRIDES[pokemonId] : undefined;
+  const offsetX = offset?.x ?? 0;
+  const offsetY = offset?.y ?? 0;
+
   const [scale, setScale] = useState(() => (url ? scaleCache.get(url) ?? 1 : 1));
 
   useEffect(() => {
@@ -135,5 +169,9 @@ export function useSpriteScale(
     };
   }, [url]);
 
-  return scale * override;
+  return {
+    scale: scale * scaleOverride,
+    offsetX,
+    offsetY,
+  };
 }

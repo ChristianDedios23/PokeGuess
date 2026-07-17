@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaDoorOpen } from "react-icons/fa";
 import { HiOutlineHandRaised } from "react-icons/hi2";
@@ -15,6 +15,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { OpponentDisconnectBanner } from "@/components/OpponentDisconnectBanner";
 import { RoomCodeReveal } from "@/components/RoomCodeReveal";
 import { RoomLobby } from "@/components/RoomLobby";
+import { ScoreBar } from "@/components/ScoreBar";
 import { SecretPokemonPanel, YourPokemonCard } from "@/components/SecretPokemonPanel";
 import { SecretRevealScreen } from "@/components/SecretRevealScreen";
 import type { ChatMessage, GameRoom, PokemonGender, WsGameOver } from "@/lib/game";
@@ -76,7 +77,6 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const [gameInfoPanel, setGameInfoPanel] = useState<"rules" | "howToPlay" | null>(null);
   const [revealingSecret, setRevealingSecret] = useState(false);
   const [score, setScore] = useState<MatchScore>({ player1: 0, player2: 0 });
-  const themesButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const hasSession = mounted && session?.roomCode === roomCode;
   const displayName = hasSession ? session!.displayName : "";
@@ -369,9 +369,11 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
           <>
             <div className="flex items-center gap-2 justify-self-start">
               <button
-                ref={themesButtonRef}
                 type="button"
-                onClick={() => setThemePickerOpen((open) => !open)}
+                onClick={() => {
+                  setGameInfoPanel(null);
+                  setThemePickerOpen((open) => !open);
+                }}
                 aria-expanded={themePickerOpen}
                 aria-haspopup="dialog"
                 className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
@@ -575,7 +577,14 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
             />
           </div>
 
-          <div className="order-1 flex min-h-0 min-w-0 w-full flex-1 flex-col self-stretch lg:order-2 lg:h-[82.5%] lg:self-center">
+          <div className="relative order-1 flex min-h-0 min-w-0 w-full flex-1 flex-col self-stretch lg:order-2 lg:h-[82.5%] lg:self-center">
+            <ScoreBar
+              className="pointer-events-none absolute right-0 bottom-full left-0 z-10 mb-2"
+              player1Name={room.players.player1?.displayName ?? "Player 1"}
+              player2Name={room.players.player2?.displayName ?? "Player 2"}
+              score1={score.player1}
+              score2={score.player2}
+            />
             {hasGuessed && (
               <p className="mb-2 w-full shrink-0 rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
                 You&apos;ve made your guess. Waiting for your opponent to make theirs…
@@ -595,11 +604,6 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 }}
                 themePickerOpen={themePickerOpen}
                 onThemePickerOpenChange={setThemePickerOpen}
-                themesButtonRef={themesButtonRef}
-                player1Name={room.players.player1?.displayName ?? "Player 1"}
-                player2Name={room.players.player2?.displayName ?? "Player 2"}
-                score1={score.player1}
-                score2={score.player2}
               />
             </div>
             <YourPokemonCard

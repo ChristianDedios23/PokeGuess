@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fredoka, Geist, Geist_Mono } from "next/font/google";
 import { PokeballIcon } from "@/components/PokeballIcon";
 import "./globals.css";
 
@@ -14,9 +14,19 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const fredoka = Fredoka({
+  weight: ["500", "600", "700"],
+  subsets: ["latin"],
+  variable: "--font-fredoka",
+});
+
 export const metadata: Metadata = {
-  title: "PokeGuess",
+  title: "PokéGuess",
   description: "Guess your opponent's Pokémon",
+  icons: {
+    icon: [{ url: "/PokeGuess Favicon.png", type: "image/png" }],
+    apple: [{ url: "/PokeGuess Favicon.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({
@@ -27,14 +37,19 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${fredoka.variable} h-full antialiased`}
     >
       <body className="flex h-dvh flex-col overflow-hidden">
         <header className="shrink-0 border-b border-zinc-200/70 bg-white/70 backdrop-blur-sm dark:border-zinc-800/70 dark:bg-zinc-950/70">
           <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-6 py-3">
             <Link href="/" className="flex items-center gap-2">
               <PokeballIcon className="h-6 w-6" />
-              <span className="text-sm font-bold tracking-tight">PokeGuess</span>
+              <span
+                style={{ fontFamily: "var(--font-fredoka)" }}
+                className="text-sm font-semibold tracking-tight"
+              >
+                PokéGuess
+              </span>
             </Link>
           </div>
         </header>

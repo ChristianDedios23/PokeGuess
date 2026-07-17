@@ -1,13 +1,13 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useState, type MouseEvent, type RefObject } from "react";
+import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import { Fredoka } from "next/font/google";
 import { BoardThemePicker } from "@/components/BoardThemePicker";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { BOARD_THEMES } from "@/lib/boardThemes";
 import type { PokemonGender } from "@/lib/game";
 import { fetchPokemonCatalog, spriteForGender, type PokemonSummary } from "@/lib/pokemon";
-import { useSpriteScale } from "@/lib/useSpriteScale";
+import { spriteTransformStyle, useSpriteScale } from "@/lib/useSpriteScale";
 
 const fredoka = Fredoka({
   weight: ["500", "600", "700"],
@@ -15,12 +15,11 @@ const fredoka = Fredoka({
   variable: "--font-fredoka",
 });
 
-// Overlay regions measured against the 840x710 Black & White PC-box frames
-// in frontend/public/boards/bw/ so the live grid lines up with the painted chrome.
+// Overlay regions measured against the 840x710 PC-box frames in
+// frontend/public/* Boards/ so the live grid lines up with the painted chrome.
 const WALLPAPERS = BOARD_THEMES;
 
 const FRAME_ASPECT = "840 / 710";
-const NAV_TITLE = { top: "4%", height: "12%", left: "18%", width: "64%" };
 const CONTENT_AREA = {
   top: "calc(21.5% + 8px)",
   bottom: "calc(5% - 16px)",
@@ -39,11 +38,6 @@ interface GuessBoardProps {
   onHoverPokemon?: (pokemonId: number | null, gender: PokemonGender | null) => void;
   themePickerOpen: boolean;
   onThemePickerOpenChange: (open: boolean) => void;
-  themesButtonRef: RefObject<HTMLButtonElement | null>;
-  player1Name: string;
-  player2Name: string;
-  score1: number;
-  score2: number;
 }
 
 function ruledOutKey(roomCode: string, selfSlot: string): string {
@@ -106,7 +100,7 @@ function BoardTile({
   onHover: (id: number | null, gender: PokemonGender | null) => void;
   onSelectForGuess: (event: MouseEvent, id: number) => void;
 }) {
-  const spriteScale = useSpriteScale(sprite, id);
+  const spriteTransform = useSpriteScale(sprite, id);
 
   return (
     <div
@@ -142,7 +136,7 @@ function BoardTile({
             src={sprite}
             alt={pokemon?.name ?? String(id)}
             draggable={false}
-            style={{ transform: `scale(${spriteScale})` }}
+            style={spriteTransformStyle(spriteTransform)}
             className={`pointer-events-none block size-[calc(70%+4px)] shrink-0 object-contain object-center transition-[filter,opacity,transform] duration-300 ${
               isRuledOut ? "opacity-45 grayscale" : ""
             }`}
@@ -219,11 +213,6 @@ export function GuessBoard({
   onHoverPokemon,
   themePickerOpen,
   onThemePickerOpenChange,
-  themesButtonRef,
-  player1Name,
-  player2Name,
-  score1,
-  score2,
 }: GuessBoardProps) {
   const [catalog, setCatalog] = useState<Map<number, PokemonSummary> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -333,8 +322,6 @@ export function GuessBoard({
           themes={WALLPAPERS}
           onClose={closeThemePicker}
           onSelect={selectWallpaper}
-          triggerRef={themesButtonRef}
-          className="fixed top-14 left-4 z-40 sm:left-6"
         />
 
         <div
@@ -355,27 +342,6 @@ export function GuessBoard({
               draggable={false}
               className="pcbox-fade absolute inset-0 h-full w-full"
             />
-
-            {/* Title bar: live scoreboard, sitting inside the painted pill */}
-            <div
-              className="pointer-events-none absolute flex items-center justify-center"
-              style={NAV_TITLE}
-            >
-              <div
-                style={{ fontFamily: "var(--font-fredoka)", color: wallpaper.accent }}
-                className="flex w-full -translate-y-5 items-center justify-center gap-2 px-3 text-sm font-extrabold tracking-wide drop-shadow-[0_1px_0_rgba(255,255,255,0.7)] sm:gap-3 sm:text-lg md:text-xl"
-              >
-                <span className="min-w-0 flex-1 truncate text-right">
-                  {player1Name}
-                </span>
-                <span className="shrink-0 tabular-nums">
-                  {score1} <span className="opacity-60">–</span> {score2}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-left">
-                  {player2Name}
-                </span>
-              </div>
-            </div>
 
             {/* Slot grid, overlaid on the picture area of the frame */}
             <div className="absolute" style={CONTENT_AREA}>

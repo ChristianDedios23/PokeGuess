@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
-import { BOARD_COLLECTIONS, type BoardTheme } from "@/lib/boardThemes";
+import { useEffect, useState } from "react";
+import {
+  BOARD_COLLECTIONS,
+  getCollectionForTheme,
+  type BoardTheme,
+} from "@/lib/boardThemes";
 
 interface BoardThemePickerProps {
   open: boolean;
@@ -9,9 +13,6 @@ interface BoardThemePickerProps {
   onClose: () => void;
   onSelect: (index: number) => void;
   themes: BoardTheme[];
-  /** Clicks on this element are ignored by the outside-close handler (e.g. the Themes toggle). */
-  triggerRef?: RefObject<HTMLButtonElement | null>;
-  className?: string;
 }
 
 export function BoardThemePicker({
@@ -20,98 +21,187 @@ export function BoardThemePicker({
   onClose,
   onSelect,
   themes,
-  triggerRef,
-  className = "absolute top-0 right-0 z-30",
 }: BoardThemePickerProps) {
-  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [rendered, setRendered] = useState(open);
+  const [visible, setVisible] = useState(false);
+  const [activeCollectionId, setActiveCollectionId] = useState(
+    () => getCollectionForTheme(selectedId)?.id ?? BOARD_COLLECTIONS[0]?.id ?? "",
+  );
+
+  const activeCollection =
+    BOARD_COLLECTIONS.find((collection) => collection.id === activeCollectionId) ??
+    BOARD_COLLECTIONS[0];
 
   useEffect(() => {
-    if (!open) return;
+    if (open) {
+      setRendered(true);
+      setVisible(false);
+      setActiveCollectionId(
+        getCollectionForTheme(selectedId)?.id ?? BOARD_COLLECTIONS[0]?.id ?? "",
+      );
 
-    function handlePointerDown(event: MouseEvent) {
-      const target = event.target as Node;
-      if (panelRef.current?.contains(target)) return;
-      if (triggerRef?.current?.contains(target)) return;
-      onClose();
+      let secondFrame = 0;
+      const firstFrame = requestAnimationFrame(() => {
+        secondFrame = requestAnimationFrame(() => setVisible(true));
+      });
+      return () => {
+        cancelAnimationFrame(firstFrame);
+        cancelAnimationFrame(secondFrame);
+      };
     }
+
+    setVisible(false);
+    const timeout = window.setTimeout(() => setRendered(false), 500);
+    return () => window.clearTimeout(timeout);
+  }, [open, selectedId]);
+
+  useEffect(() => {
+    if (!rendered) return;
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
     }
 
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open, onClose, triggerRef]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [rendered, onClose]);
 
-  if (!open) return null;
+  if (!rendered) return null;
 
   return (
     <div
-      ref={panelRef}
       role="dialog"
-      aria-label="Board themes"
-      className={`${className} flex max-h-[min(100%,28rem)] w-44 flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/95 shadow-xl backdrop-blur-md dark:border-zinc-700/80 dark:bg-zinc-900/95 sm:w-52`}
+      aria-modal="true"
+      aria-labelledby="themes-title"
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${
+        visible ? "" : "pointer-events-none"
+      }`}
     >
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200/80 px-3 py-2 dark:border-zinc-700/80">
-        <p className="text-xs font-semibold tracking-wide text-zinc-700 uppercase dark:text-zinc-200">
-          {BOARD_COLLECTIONS[0]?.label ?? "Themes"}
-        </p>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close theme picker"
-          className="rounded-md px-1.5 py-0.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-        >
-          ×
-        </button>
-      </div>
+      <button
+        type="button"
+        aria-label="Close themes"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/40"
+        style={{
+          opacity: visible ? 1 : 0,
+          backdropFilter: visible ? "blur(4px)" : "blur(0px)",
+          WebkitBackdropFilter: visible ? "blur(4px)" : "blur(0px)",
+          transition:
+            "opacity 500ms ease-out, backdrop-filter 500ms ease-out, -webkit-backdrop-filter 500ms ease-out",
+        }}
+      />
 
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-2">
-        {themes.map((theme, index) => {
-          const selected = theme.id === selectedId;
-          return (
-            <button
-              key={theme.id}
-              type="button"
-              onClick={() => {
-                onSelect(index);
-                onClose();
-              }}
-              className={`group w-full overflow-hidden rounded-xl border text-left transition ${
-                selected
-                  ? "border-amber-400 ring-2 ring-amber-400/50"
-                  : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-500"
-              }`}
-            >
-              <div
-                className="relative w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800"
-                style={{ aspectRatio: "840 / 710" }}
+      <div
+        className="relative z-10 flex max-h-[min(100%,36rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-zinc-500 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        style={{
+          opacity: visible ? 1 : 0,
+          transform: visible ? "translateY(0) scale(1)" : "translateY(4px) scale(0.99)",
+          transition: "opacity 500ms ease-out, transform 500ms ease-out",
+        }}
+      >
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-zinc-200 px-5 py-4 dark:border-zinc-700">
+          <h2
+            id="themes-title"
+            className="text-lg font-semibold text-zinc-900 dark:text-zinc-100"
+          >
+            Themes
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-lg border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            Close
+          </button>
+        </div>
+
+        <div
+          role="tablist"
+          aria-label="Pokémon game"
+          className="grid shrink-0 grid-cols-4 border-b border-zinc-200 px-3 pt-2 dark:border-zinc-700"
+        >
+          {BOARD_COLLECTIONS.map((collection) => {
+            const active = collection.id === activeCollection?.id;
+            const shortLabel =
+              collection.id === "bw"
+                ? "B/W"
+                : collection.id === "bw2"
+                  ? "B2/W2"
+                  : collection.id === "dp"
+                    ? "D/P"
+                    : "Pt";
+
+            return (
+              <button
+                key={collection.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                title={collection.label}
+                onClick={() => setActiveCollectionId(collection.id)}
+                className={`border-b-2 px-1 py-2.5 text-xs font-semibold transition ${
+                  active
+                    ? "border-amber-500 text-amber-700 dark:text-amber-300"
+                    : "border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-800 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-100"
+                }`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={theme.file}
-                  alt=""
-                  draggable={false}
-                  className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"
-                />
-              </div>
-              <div className="flex items-center justify-between gap-1 px-2 py-1.5">
-                <span className="truncate text-[11px] font-medium text-zinc-700 dark:text-zinc-200">
-                  {theme.label}
-                </span>
-                {selected && (
-                  <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-                    Active
-                  </span>
-                )}
-              </div>
-            </button>
-          );
-        })}
+                {shortLabel}
+              </button>
+            );
+          })}
+        </div>
+
+        <div
+          role="tabpanel"
+          aria-label={activeCollection?.label}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4"
+        >
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {activeCollection?.themes.map((theme) => {
+              const index = themes.findIndex((entry) => entry.id === theme.id);
+              const selected = theme.id === selectedId;
+              return (
+                <button
+                  key={theme.id}
+                  type="button"
+                  onClick={() => {
+                    if (index >= 0) onSelect(index);
+                    onClose();
+                  }}
+                  className={`group overflow-hidden rounded-xl border text-left transition ${
+                    selected
+                      ? "border-amber-400 ring-2 ring-amber-400/50"
+                      : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-500"
+                  }`}
+                >
+                  <div
+                    className="relative w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800"
+                    style={{ aspectRatio: "840 / 710" }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={theme.file}
+                      alt=""
+                      draggable={false}
+                      className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-1 px-2.5 py-2">
+                    <span className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                      {theme.label}
+                    </span>
+                    {selected && (
+                      <span className="shrink-0 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                        Active
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
