@@ -2,6 +2,17 @@ export type RoomStatus = "WAITING" | "ACTIVE" | "FINISHED" | "FORFEITED";
 export type TurnPlayer = "player1" | "player2";
 export type PokemonGender = "male" | "female" | "genderless";
 
+export type FeedbackCategory = "bug" | "feedback" | "visual";
+
+export interface FeedbackReport {
+  id: string;
+  category: FeedbackCategory;
+  message: string;
+  pokemonRef?: string;
+  email?: string;
+  createdAt: string;
+}
+
 export interface PlayerGuess {
   pokemonId: number;
   correct: boolean;

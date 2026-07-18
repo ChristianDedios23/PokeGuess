@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Confetti } from "@/components/Confetti";
 import type { GameRoom, WsGameOver } from "@/lib/game";
 import {
   fetchPokemonCatalog,
@@ -82,6 +83,7 @@ export function GameOverBanner({ room, payload, selfSlot }: GameOverBannerProps)
 
   return (
     <section className={`space-y-5 rounded-2xl border p-6 text-center shadow-sm ${theme}`}>
+      {won && <Confetti />}
       <div className="space-y-1">
         <p className="text-3xl">{emoji}</p>
         <p className="text-xl font-bold">{headline}</p>

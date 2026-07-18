@@ -75,6 +75,8 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const [hoveredPokemonId, setHoveredPokemonId] = useState<number | null>(null);
   const [hoveredGender, setHoveredGender] = useState<PokemonGender | null>(null);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const [selectedGuessId, setSelectedGuessId] = useState<number | null>(null);
+  const [confirmingGuess, setConfirmingGuess] = useState(false);
   const [gameInfoPanel, setGameInfoPanel] = useState<"rules" | "howToPlay" | null>(null);
   const [revealingSecret, setRevealingSecret] = useState(false);
   const [score, setScore] = useState<MatchScore>({ player1: 0, player2: 0 });
@@ -210,6 +212,21 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit guess");
     }
+  }
+
+  function handleSelectForGuess(pokemonId: number) {
+    setSelectedGuessId((current) => (current === pokemonId ? null : pokemonId));
+    setConfirmingGuess(false);
+  }
+
+  function handleSubmitGuess() {
+    if (selectedGuessId === null) return;
+    if (!confirmingGuess) {
+      setConfirmingGuess(true);
+      return;
+    }
+    handleGuess(selectedGuessId);
+    setConfirmingGuess(false);
   }
 
   function handleForfeit() {
@@ -605,7 +622,8 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 board={room.board}
                 boardGenders={room.boardGenders ?? []}
                 disabled={!connectionId || hasGuessed}
-                onGuess={handleGuess}
+                selected={selectedGuessId}
+                onSelectForGuess={handleSelectForGuess}
                 onHoverPokemon={(pokemonId, gender) => {
                   setHoveredPokemonId(pokemonId);
                   setHoveredGender(gender);
@@ -628,6 +646,19 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 }
               }}
             />
+            {selectedGuessId !== null && (
+              <div className="flex shrink-0 justify-center pt-2">
+                <button
+                  type="button"
+                  onClick={handleSubmitGuess}
+                  disabled={!connectionId || hasGuessed}
+                  style={{ fontFamily: "var(--font-fredoka)" }}
+                  className="shrink-0 rounded-full bg-gradient-to-b from-red-500 to-red-600 px-4 py-2 text-xs font-bold text-white shadow-[0_3px_0_0_rgba(153,27,27,1),0_6px_10px_-2px_rgba(0,0,0,0.3)] transition hover:brightness-105 active:translate-y-[2px] active:shadow-[0_1px_0_0_rgba(153,27,27,1)] disabled:opacity-50"
+                >
+                  {confirmingGuess ? "Confirm final guess?" : "Submit guess"}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="order-2 h-36 w-full min-w-0 shrink-0 self-center lg:order-3 lg:h-[82.5%] lg:w-[250px] xl:w-[298px]">

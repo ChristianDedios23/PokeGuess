@@ -39,7 +39,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${fredoka.variable} h-full antialiased`}
     >
-      <body className="h-dvh overflow-hidden">
+      <body className="h-dvh overflow-y-auto">
         <div className="flex h-full flex-col">
           <header className="shrink-0 border-b border-zinc-200/70 bg-white/70 backdrop-blur-sm dark:border-zinc-800/70 dark:bg-zinc-950/70">
             <div className="mx-auto flex w-full max-w-7xl items-center justify-center px-6 py-3">

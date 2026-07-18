@@ -5,9 +5,14 @@
    entirely) since utilities sit in a higher-priority layer than this one. */
 @layer components {
   button:not(:disabled) {
+    cursor: pointer;
     transition-property: transform;
     transition-duration: 120ms;
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  button:disabled {
+    cursor: not-allowed;
   }
 
   button:not(:disabled):active:not(.modal-scrim) {
@@ -235,6 +240,25 @@ body > * {
 
 .theme-tab-panel {
   animation: theme-tab-panel-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--confetti-drift, 0px), 110vh, 0)
+      rotate(var(--confetti-spin, 360deg));
+    opacity: 0.9;
+  }
+}
+
+.confetti-piece {
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(0.35, 0, 0.65, 1);
+  animation-fill-mode: forwards;
+  will-change: transform, opacity;
 }
 
 @media (prefers-reduced-motion: reduce) {

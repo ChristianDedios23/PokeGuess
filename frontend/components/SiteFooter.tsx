@@ -10,6 +10,7 @@ import {
 import { createPortal } from "react-dom";
 import { FaGithub } from "react-icons/fa6";
 import { SiLeetcode } from "react-icons/si";
+import { submitFeedback } from "@/lib/feedback";
 
 type FooterPanel = "about" | "terms" | "contact";
 type ContactCategory = "bug" | "feedback" | "visual";
@@ -133,6 +134,8 @@ function SiteInfoModal({
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
   const [submittedNote, setSubmittedNote] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -143,6 +146,7 @@ function SiteInfoModal({
       setRenderedPanel(panel);
       setVisible(false);
       setSubmittedNote(null);
+      setSubmitError(null);
 
       let secondFrame = 0;
       const firstFrame = requestAnimationFrame(() => {
@@ -179,11 +183,28 @@ function SiteInfoModal({
         ? "Terms"
         : "Contact";
 
-  function handleContactSubmit(event: FormEvent) {
+  async function handleContactSubmit(event: FormEvent) {
     event.preventDefault();
-    setSubmittedNote(
-      "Thanks — feedback submission isn’t wired up yet. Your note was kept on this screen only and wasn’t sent.",
-    );
+    if (submitting) return;
+
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await submitFeedback({
+        category,
+        message,
+        pokemonRef: category === "visual" ? pokemonRef : undefined,
+        email,
+      });
+      setSubmittedNote("Thanks — your message was sent. We'll take a look.");
+      setMessage("");
+      setPokemonRef("");
+      setEmail("");
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to send — try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   // Portal onto document.body with inline fixed centering — same viewport
@@ -272,8 +293,7 @@ function SiteInfoModal({
           >
             <p>
               Send bug reports, general feedback, or notify us of Pokémon sprites
-              that clip or sit oddly on the board. Submission isn&apos;t
-              connected to a backend yet — the form is ready for when that lands.
+              that clip or sit oddly on the board.
             </p>
 
             <div className="space-y-1.5">
@@ -362,20 +382,24 @@ function SiteInfoModal({
             </div>
 
             {submittedNote && (
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+              <p className="rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800 dark:bg-green-950 dark:text-green-300">
                 {submittedNote}
+              </p>
+            )}
+
+            {submitError && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
+                {submitError}
               </p>
             )}
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-zinc-900 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+              disabled={submitting}
+              className="w-full rounded-lg bg-zinc-900 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
             >
-              Submit feedback
+              {submitting ? "Sending…" : "Submit feedback"}
             </button>
-            <p className="text-center text-[11px] text-zinc-400 dark:text-zinc-500">
-              Backend not connected yet — nothing is emailed or stored.
-            </p>
           </form>
         )}
       </div>
@@ -398,7 +422,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
       </main>
 
       <footer className="shrink-0 border-t border-zinc-200/70 bg-white/70 backdrop-blur-sm dark:border-zinc-800/70 dark:bg-zinc-950/70">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-center gap-4 px-6 py-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-center gap-5 px-6 py-3 text-xs text-zinc-500 dark:text-zinc-400">
           <button
             type="button"
             onClick={() => setPanel("about")}

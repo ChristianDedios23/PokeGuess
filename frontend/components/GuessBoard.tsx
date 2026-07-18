@@ -34,7 +34,8 @@ interface GuessBoardProps {
   board: number[];
   boardGenders: PokemonGender[];
   disabled: boolean;
-  onGuess: (pokemonId: number) => void;
+  selected: number | null;
+  onSelectForGuess: (pokemonId: number) => void;
   onHoverPokemon?: (pokemonId: number | null, gender: PokemonGender | null) => void;
   themePickerOpen: boolean;
   onThemePickerOpenChange: (open: boolean) => void;
@@ -209,7 +210,8 @@ export function GuessBoard({
   board,
   boardGenders,
   disabled,
-  onGuess,
+  selected,
+  onSelectForGuess,
   onHoverPokemon,
   themePickerOpen,
   onThemePickerOpenChange,
@@ -217,8 +219,6 @@ export function GuessBoard({
   const [catalog, setCatalog] = useState<Map<number, PokemonSummary> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ruledOut, setRuledOut] = useState<Set<number>>(() => new Set());
-  const [selected, setSelected] = useState<number | null>(null);
-  const [confirming, setConfirming] = useState(false);
   const [wallpaperIndex, setWallpaperIndex] = useState(0);
 
   useEffect(() => {
@@ -287,18 +287,7 @@ export function GuessBoard({
   function handleSelectForGuess(event: MouseEvent, id: number) {
     event.stopPropagation();
     if (disabled) return;
-    setSelected((current) => (current === id ? null : id));
-    setConfirming(false);
-  }
-
-  function handleGuessClick() {
-    if (selected === null) return;
-    if (!confirming) {
-      setConfirming(true);
-      return;
-    }
-    onGuess(selected);
-    setConfirming(false);
+    onSelectForGuess(id);
   }
 
   function selectWallpaper(index: number) {
@@ -385,20 +374,6 @@ export function GuessBoard({
             </div>
         </div>
       </div>
-
-      {selected !== null && (
-        <div className="pointer-events-none fixed bottom-4 left-1/2 z-30 -translate-x-1/2">
-          <button
-            type="button"
-            onClick={handleGuessClick}
-            disabled={disabled}
-            style={{ fontFamily: "var(--font-fredoka)" }}
-            className="pointer-events-auto shrink-0 rounded-full bg-gradient-to-b from-red-500 to-red-600 px-4 py-2 text-xs font-bold text-white shadow-[0_3px_0_0_rgba(153,27,27,1),0_6px_10px_-2px_rgba(0,0,0,0.3)] transition hover:brightness-105 active:translate-y-[2px] active:shadow-[0_1px_0_0_rgba(153,27,27,1)] disabled:opacity-50"
-          >
-            {confirming ? "Confirm final guess?" : "Submit guess"}
-          </button>
-        </div>
-      )}
     </section>
   );
 }
