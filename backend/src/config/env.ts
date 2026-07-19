@@ -9,7 +9,7 @@ export const env = {
   port: parseIntEnv(process.env.PORT, 3000),
   nodeEnv: process.env.NODE_ENV ?? "development",
   awsRegion: process.env.AWS_REGION ?? "us-east-1",
-  dynamodbEndpoint: process.env.DYNAMODB_ENDPOINT ?? "http://127.0.0.1:8000",
+  dynamodbEndpoint: process.env.DYNAMODB_ENDPOINT,
   awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID ?? "local",
   awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? "local",
   forfeitGraceMs: parseIntEnv(process.env.FORFEIT_GRACE_MS, 30_000),
