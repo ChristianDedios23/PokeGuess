@@ -39,6 +39,7 @@ interface GuessBoardProps {
   onHoverPokemon?: (pokemonId: number | null, gender: PokemonGender | null) => void;
   themePickerOpen: boolean;
   onThemePickerOpenChange: (open: boolean) => void;
+  align?: "top" | "bottom";
 }
 
 function ruledOutKey(roomCode: string, selfSlot: string): string {
@@ -111,7 +112,10 @@ function BoardTile({
       <div
         role="button"
         tabIndex={disabled ? -1 : 0}
-        onClick={() => onToggleRuledOut(id)}
+        onClick={() => {
+          onHover(id, gender);
+          onToggleRuledOut(id);
+        }}
         onMouseEnter={() => onHover(id, gender)}
         onMouseLeave={() => onHover(null, null)}
         onFocus={() => onHover(id, gender)}
@@ -215,6 +219,7 @@ export function GuessBoard({
   onHoverPokemon,
   themePickerOpen,
   onThemePickerOpenChange,
+  align = "bottom",
 }: GuessBoardProps) {
   const [catalog, setCatalog] = useState<Map<number, PokemonSummary> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -314,7 +319,7 @@ export function GuessBoard({
         />
 
         <div
-          className="absolute bottom-0 left-1/2 max-h-full max-w-full -translate-x-1/2 select-none ring-2 ring-zinc-300/80 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.35)] dark:ring-zinc-700/70"
+          className={`absolute ${align === "top" ? "top-0" : "bottom-0"} left-1/2 max-h-full max-w-full -translate-x-1/2 select-none ring-2 ring-zinc-300/80 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.35)] dark:ring-zinc-700/70`}
           style={{
             aspectRatio: FRAME_ASPECT,
             width: "min(100cqw, calc(100cqh * 840 / 710))",

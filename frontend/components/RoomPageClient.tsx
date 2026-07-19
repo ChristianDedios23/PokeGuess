@@ -1,9 +1,22 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { FaDoorOpen } from "react-icons/fa";
-import { HiOutlineHandRaised } from "react-icons/hi2";
+import {
+  HiOutlineChatBubbleLeftRight,
+  HiOutlineEllipsisVertical,
+  HiOutlineHandRaised,
+  HiOutlineMagnifyingGlass,
+} from "react-icons/hi2";
 import { IoIosPaper } from "react-icons/io";
 import { LuPaintbrush } from "react-icons/lu";
 import { MdGavel } from "react-icons/md";
@@ -21,6 +34,7 @@ import { SecretRevealScreen } from "@/components/SecretRevealScreen";
 import type { ChatMessage, GameRoom, PokemonGender, WsGameOver } from "@/lib/game";
 import { FORFEIT_GRACE_MS, joinRoom } from "@/lib/game";
 import { getSession, saveSession, type PlayerSession } from "@/lib/session";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useRoomSocket } from "@/lib/useRoomSocket";
 
 interface RoomPageClientProps {
@@ -80,6 +94,10 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const [gameInfoPanel, setGameInfoPanel] = useState<"rules" | "howToPlay" | null>(null);
   const [revealingSecret, setRevealingSecret] = useState(false);
   const [score, setScore] = useState<MatchScore>({ player1: 0, player2: 0 });
+  const [mobileSheet, setMobileSheet] = useState<"info" | "chat" | null>(null);
+  const [unreadChat, setUnreadChat] = useState(false);
+
+  const isMobileLayout = useMediaQuery("(max-width: 1023px)");
 
   const hasSession = mounted && session?.roomCode === roomCode;
   const displayName = hasSession ? session!.displayName : "";
@@ -133,8 +151,9 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
         sentAt: payload.sentAt,
         isSelf: false,
       });
+      if (mobileSheet !== "chat") setUnreadChat(true);
     },
-    [],
+    [mobileSheet],
   );
 
   const handleChatMessageSent = useCallback((payload: { message: string; sentAt: string }) => {
@@ -229,13 +248,13 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     setConfirmingGuess(false);
   }
 
+  function requestForfeit() {
+    setConfirmingLeave(false);
+    setConfirmingForfeit(true);
+  }
+
   function handleForfeit() {
     if (!connectionId) return;
-    if (!confirmingForfeit) {
-      setConfirmingLeave(false);
-      setConfirmingForfeit(true);
-      return;
-    }
     setError(null);
     try {
       send({ action: "forfeitGame" });
@@ -273,9 +292,13 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
 
   const gameActive = room?.status === "ACTIVE";
   const gameEnded = room?.status === "FINISHED" || room?.status === "FORFEITED";
+  const mobileGameHeader = gameActive && isMobileLayout;
 
   useEffect(() => {
-    if (!gameActive) setThemePickerOpen(false);
+    if (!gameActive) {
+      setThemePickerOpen(false);
+      setMobileSheet(null);
+    }
   }, [gameActive]);
   const ownSecretPokemonId = room?.players[selfSlot]?.secretPokemonId;
   const ownSecretGender = room?.players[selfSlot]?.secretGender ?? "genderless";
@@ -386,72 +409,102 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
       <header
         className={`z-20 gap-2 ${
           gameActive
-            ? "absolute top-0 right-0 left-0 grid grid-cols-[1fr_auto_1fr] items-center px-4 py-2 sm:px-6"
+            ? `grid grid-cols-[1fr_auto_1fr] items-center px-4 py-2 sm:px-6 ${
+                mobileGameHeader ? "" : "absolute top-0 right-0 left-0"
+              }`
             : "flex shrink-0 flex-wrap items-start justify-between"
         }`}
       >
         {gameActive ? (
-          <>
-            <div className="flex items-center gap-2 justify-self-start">
-              <button
-                type="button"
-                onClick={() => {
-                  setGameInfoPanel(null);
-                  setThemePickerOpen((open) => !open);
-                }}
-                aria-expanded={themePickerOpen}
-                aria-haspopup="dialog"
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
-                  themePickerOpen
-                    ? "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
-                    : "border-zinc-300 bg-white/80 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                }`}
-              >
-                <LuPaintbrush className="size-3.5 shrink-0" aria-hidden="true" />
-                Themes
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setThemePickerOpen(false);
-                  setGameInfoPanel("rules");
-                }}
-                aria-expanded={gameInfoPanel === "rules"}
-                aria-haspopup="dialog"
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
-                  gameInfoPanel === "rules"
-                    ? "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
-                    : "border-zinc-300 bg-white/80 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                }`}
-              >
-                <IoIosPaper className="size-3.5 shrink-0" aria-hidden="true" />
-                Rules
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setThemePickerOpen(false);
-                  setGameInfoPanel("howToPlay");
-                }}
-                aria-expanded={gameInfoPanel === "howToPlay"}
-                aria-haspopup="dialog"
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
-                  gameInfoPanel === "howToPlay"
-                    ? "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
-                    : "border-zinc-300 bg-white/80 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                }`}
-              >
-                <HiOutlineHandRaised className="size-3.5 shrink-0" aria-hidden="true" />
-                How to Play
-              </button>
-            </div>
-            <RoomCodeReveal
-              roomCode={roomCode}
-              copyable
-              showHint
-              className="text-lg font-bold tracking-[0.25em] text-red-600 dark:text-red-500"
-            />
-          </>
+          mobileGameHeader ? (
+            <>
+              <div className="justify-self-start">
+                <MobileHeaderMenu
+                  themesOpen={themePickerOpen}
+                  onThemes={() => {
+                    setGameInfoPanel(null);
+                    setThemePickerOpen((open) => !open);
+                  }}
+                  onRules={() => {
+                    setThemePickerOpen(false);
+                    setGameInfoPanel("rules");
+                  }}
+                  onHowToPlay={() => {
+                    setThemePickerOpen(false);
+                    setGameInfoPanel("howToPlay");
+                  }}
+                />
+              </div>
+              <RoomCodeReveal
+                roomCode={roomCode}
+                copyable
+                showHint
+                className="text-sm font-bold tracking-[0.2em] text-red-600 dark:text-red-500"
+              />
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 justify-self-start">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGameInfoPanel(null);
+                    setThemePickerOpen((open) => !open);
+                  }}
+                  aria-expanded={themePickerOpen}
+                  aria-haspopup="dialog"
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
+                    themePickerOpen
+                      ? "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
+                      : "border-zinc-300 bg-white/80 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  <LuPaintbrush className="size-3.5 shrink-0" aria-hidden="true" />
+                  Themes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setThemePickerOpen(false);
+                    setGameInfoPanel("rules");
+                  }}
+                  aria-expanded={gameInfoPanel === "rules"}
+                  aria-haspopup="dialog"
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
+                    gameInfoPanel === "rules"
+                      ? "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
+                      : "border-zinc-300 bg-white/80 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  <IoIosPaper className="size-3.5 shrink-0" aria-hidden="true" />
+                  Rules
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setThemePickerOpen(false);
+                    setGameInfoPanel("howToPlay");
+                  }}
+                  aria-expanded={gameInfoPanel === "howToPlay"}
+                  aria-haspopup="dialog"
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
+                    gameInfoPanel === "howToPlay"
+                      ? "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
+                      : "border-zinc-300 bg-white/80 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  <HiOutlineHandRaised className="size-3.5 shrink-0" aria-hidden="true" />
+                  How to Play
+                </button>
+              </div>
+              <RoomCodeReveal
+                roomCode={roomCode}
+                copyable
+                showHint
+                className="text-lg font-bold tracking-[0.25em] text-red-600 dark:text-red-500"
+              />
+            </>
+          )
         ) : room?.status !== "WAITING" ? (
           <div className="space-y-0.5">
             <h1 className="text-2xl font-bold">Room {roomCode}</h1>
@@ -490,45 +543,27 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
         )}
 
         <div className={`flex gap-2 ${gameActive ? "justify-self-end" : ""}`}>
-          {gameActive && !confirmingForfeit && (
+          {gameActive && (
             <button
               type="button"
-              onClick={handleForfeit}
+              onClick={requestForfeit}
               disabled={!connectionId}
               className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white/80 px-3 py-1.5 text-xs font-medium text-red-700 backdrop-blur-sm transition hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:bg-zinc-950/70 dark:text-red-300 dark:hover:bg-red-950"
+              aria-label="Forfeit"
             >
               <MdGavel className="size-3.5 shrink-0" aria-hidden="true" />
-              Forfeit
+              {!mobileGameHeader && "Forfeit"}
             </button>
-          )}
-          {gameActive && confirmingForfeit && (
-            <>
-              <button
-                type="button"
-                onClick={() => setConfirmingForfeit(false)}
-                className="rounded-lg border border-zinc-300 bg-white/80 px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:hover:bg-zinc-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleForfeit}
-                disabled={!connectionId}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50"
-              >
-                <MdGavel className="size-3.5 shrink-0" aria-hidden="true" />
-                Confirm forfeit
-              </button>
-            </>
           )}
           {!gameEnded && (
             <button
               type="button"
               onClick={requestLeave}
               className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white/80 px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:hover:bg-zinc-800"
+              aria-label="Leave game"
             >
               <FaDoorOpen className="size-3.5 shrink-0" aria-hidden="true" />
-              Leave game
+              {!mobileGameHeader && "Leave game"}
             </button>
           )}
         </div>
@@ -536,7 +571,13 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
 
       {gameActive ? (
         (error || socketError || status === "error" || opponentHasLeft) && (
-          <div className="absolute top-14 right-4 left-4 z-20 flex flex-col items-start gap-2 sm:right-6 sm:left-6">
+          <div
+            className={`z-20 flex flex-col items-start gap-2 ${
+              mobileGameHeader
+                ? "shrink-0"
+                : "absolute top-14 right-4 left-4 sm:right-6 sm:left-6"
+            }`}
+          >
             {(error || socketError) && (
               <p className="w-full rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
                 {error ?? socketError}
@@ -591,7 +632,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
         />
       )}
 
-      {room && gameActive && (
+      {room && gameActive && !isMobileLayout && (
         <div className="flex h-full min-h-0 translate-y-8 flex-col gap-2 pt-12 pb-1 lg:flex-row lg:items-center lg:justify-center lg:gap-3">
           <div className="order-3 h-72 w-full shrink-0 self-center lg:order-1 lg:h-[82.5%] lg:w-[250px] xl:w-[298px]">
             <SecretPokemonPanel
@@ -680,6 +721,117 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
         </div>
       )}
 
+      {room && gameActive && isMobileLayout && (
+        <>
+          <div className="flex h-full min-h-0 flex-col gap-2 pb-16">
+            <ScoreBar
+              className="shrink-0"
+              player1Name={room.players.player1?.displayName ?? "Player 1"}
+              player2Name={room.players.player2?.displayName ?? "Player 2"}
+              score1={score.player1}
+              score2={score.player2}
+            />
+            {hasGuessed && (
+              <p className="w-full shrink-0 rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                You&apos;ve made your guess. Waiting for your opponent to make theirs…
+              </p>
+            )}
+            <div
+              className="relative min-h-0 w-full"
+              style={{ aspectRatio: "840 / 710" }}
+            >
+              <GuessBoard
+                roomCode={roomCode}
+                selfSlot={selfSlot}
+                board={room.board}
+                boardGenders={room.boardGenders ?? []}
+                disabled={!connectionId || hasGuessed}
+                selected={selectedGuessId}
+                onSelectForGuess={handleSelectForGuess}
+                onHoverPokemon={(pokemonId, gender) => {
+                  setHoveredPokemonId(pokemonId);
+                  setHoveredGender(gender);
+                }}
+                themePickerOpen={themePickerOpen}
+                onThemePickerOpenChange={setThemePickerOpen}
+                align="top"
+              />
+            </div>
+            <div className="flex shrink-0 items-center justify-center gap-3">
+              <YourPokemonCard
+                pokemonId={ownSecretPokemonId}
+                secretGender={ownSecretGender}
+                onHover={(hovering) => {
+                  if (hovering) {
+                    setHoveredPokemonId(ownSecretPokemonId ?? null);
+                    setHoveredGender(ownSecretGender);
+                  } else {
+                    setHoveredPokemonId(null);
+                    setHoveredGender(null);
+                  }
+                }}
+              />
+              {selectedGuessId !== null && (
+                <button
+                  type="button"
+                  onClick={handleSubmitGuess}
+                  disabled={!connectionId || hasGuessed}
+                  style={{ fontFamily: "var(--font-fredoka)" }}
+                  className="shrink-0 rounded-full bg-gradient-to-b from-red-500 to-red-600 px-4 py-2 text-xs font-bold text-white shadow-[0_3px_0_0_rgba(153,27,27,1),0_6px_10px_-2px_rgba(0,0,0,0.3)] transition hover:brightness-105 active:translate-y-[2px] active:shadow-[0_1px_0_0_rgba(153,27,27,1)] disabled:opacity-50"
+                >
+                  {confirmingGuess ? "Confirm final guess?" : "Submit guess"}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <MobileSheet
+            mobileSheet={mobileSheet}
+            unreadChat={unreadChat}
+            onToggleInfo={() =>
+              setMobileSheet((current) => (current === "info" ? null : "info"))
+            }
+            onToggleChat={() => {
+              setMobileSheet((current) => (current === "chat" ? null : "chat"));
+              setUnreadChat(false);
+            }}
+          >
+            <div
+              className={`h-full min-h-0 ${
+                mobileSheet === "info" ? "flex flex-col" : "hidden"
+              }`}
+            >
+              <SecretPokemonPanel
+                className="h-full"
+                variant="inspectView"
+                hoveredPokemonId={hoveredPokemonId}
+                hoveredGender={hoveredGender}
+              />
+            </div>
+            <div
+              className={`h-full min-h-0 ${
+                mobileSheet === "chat" ? "flex flex-col" : "hidden"
+              }`}
+            >
+              <ChatPanel
+                className="h-full"
+                connectionId={connectionId}
+                selfDisplayName={displayName}
+                selfConnectionId={connectionId}
+                enabled={gameActive}
+                isHost={isHost}
+                connectionStatus={status === "idle" ? "disconnected" : status}
+                incomingMessage={incomingChat}
+                sentConfirmation={sentConfirmation}
+                onSendMessage={(message) => {
+                  send({ action: "sendChatMessage", message });
+                }}
+              />
+            </div>
+          </MobileSheet>
+        </>
+      )}
+
       {room && gameEnded && (
         <div className="space-y-4">
           <GameOverBanner room={room} payload={gameOver} selfSlot={selfSlot} />
@@ -731,6 +883,12 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
         open={confirmingLeave}
         onCancel={() => setConfirmingLeave(false)}
         onConfirm={handleLeave}
+      />
+
+      <ForfeitModal
+        open={confirmingForfeit}
+        onCancel={() => setConfirmingForfeit(false)}
+        onConfirm={handleForfeit}
       />
     </div>
   );
@@ -835,6 +993,293 @@ function LeaveRoomModal({
             Leave room
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ForfeitModal({
+  open,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const [rendered, setRendered] = useState(open);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setRendered(true);
+      setVisible(false);
+      let secondFrame = 0;
+      const firstFrame = requestAnimationFrame(() => {
+        secondFrame = requestAnimationFrame(() => setVisible(true));
+      });
+      return () => {
+        cancelAnimationFrame(firstFrame);
+        cancelAnimationFrame(secondFrame);
+      };
+    }
+
+    setVisible(false);
+    const timeout = window.setTimeout(() => setRendered(false), 180);
+    return () => window.clearTimeout(timeout);
+  }, [open]);
+
+  useEffect(() => {
+    if (!rendered) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onCancel();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [rendered, onCancel]);
+
+  if (!rendered) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="forfeit-title"
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${
+        visible ? "" : "pointer-events-none"
+      }`}
+    >
+      <button
+        type="button"
+        aria-label="Cancel forfeit"
+        onClick={onCancel}
+        className="modal-scrim absolute inset-0 bg-black/55 outline-none ring-0 transition-[box-shadow] active:transform-none active:ring-1 active:ring-inset active:ring-white/25 focus-visible:outline-none"
+        style={{
+          opacity: visible ? 1 : 0,
+          transition: "opacity 180ms ease-out",
+        }}
+      />
+
+      <div
+        className="relative z-10 w-full max-w-sm rounded-2xl border border-zinc-500 bg-white p-6 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        style={{
+          opacity: visible ? 1 : 0,
+          transform: visible ? "translateY(0) scale(1)" : "translateY(4px) scale(0.99)",
+          transition: "opacity 180ms ease-out, transform 180ms ease-out",
+        }}
+      >
+        <h2
+          id="forfeit-title"
+          className="text-lg font-semibold text-zinc-900 dark:text-zinc-100"
+        >
+          Forfeit this match?
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+          Your opponent will be declared the winner. This can&apos;t be undone.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            Keep playing
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+          >
+            <MdGavel className="size-3.5 shrink-0" aria-hidden="true" />
+            Forfeit match
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileHeaderMenu({
+  themesOpen,
+  onThemes,
+  onRules,
+  onHowToPlay,
+}: {
+  themesOpen: boolean;
+  onThemes: () => void;
+  onRules: () => void;
+  onHowToPlay: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label="Game menu"
+        className={`inline-flex items-center justify-center rounded-lg border p-2 backdrop-blur-sm transition ${
+          open || themesOpen
+            ? "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
+            : "border-zinc-300 bg-white/80 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        }`}
+      >
+        <HiOutlineEllipsisVertical className="size-4 shrink-0" aria-hidden="true" />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="Game menu"
+          className="absolute top-full left-0 z-30 mt-1 w-44 overflow-hidden rounded-lg border border-zinc-300 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          <button
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              onThemes();
+              setOpen(false);
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <LuPaintbrush className="size-4 shrink-0" aria-hidden="true" />
+            Themes
+          </button>
+          <button
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              onRules();
+              setOpen(false);
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <IoIosPaper className="size-4 shrink-0" aria-hidden="true" />
+            Rules
+          </button>
+          <button
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              onHowToPlay();
+              setOpen(false);
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <HiOutlineHandRaised className="size-4 shrink-0" aria-hidden="true" />
+            How to Play
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const MOBILE_SHEET_BODY_HEIGHT = "min(60dvh, 26rem)";
+
+function MobileSheet({
+  mobileSheet,
+  unreadChat,
+  onToggleInfo,
+  onToggleChat,
+  children,
+}: {
+  mobileSheet: "info" | "chat" | null;
+  unreadChat: boolean;
+  onToggleInfo: () => void;
+  onToggleChat: () => void;
+  children: ReactNode;
+}) {
+  const open = mobileSheet !== null;
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (mobileSheet === "info") onToggleInfo();
+      else if (mobileSheet === "chat") onToggleChat();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, mobileSheet, onToggleInfo, onToggleChat]);
+
+  return (
+    <div
+      role="region"
+      aria-label="Inspect and chat"
+      className="absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden rounded-t-2xl border border-zinc-300 bg-white shadow-[0_-8px_24px_-8px_rgba(0,0,0,0.25)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] dark:border-zinc-700 dark:bg-zinc-900"
+      style={{
+        height: `calc(3.5rem + ${MOBILE_SHEET_BODY_HEIGHT})`,
+        transform: open ? "translateY(0)" : `translateY(${MOBILE_SHEET_BODY_HEIGHT})`,
+      }}
+    >
+      <div className="z-10 flex h-14 shrink-0 items-center gap-2 bg-white/95 px-3 py-2 backdrop-blur-sm dark:bg-zinc-950/95">
+        <button
+          type="button"
+          onClick={onToggleInfo}
+          aria-pressed={mobileSheet === "info"}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold transition-all duration-150 active:scale-95 ${
+            mobileSheet === "info"
+              ? "bg-amber-100 text-amber-800 shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] dark:bg-amber-950 dark:text-amber-200"
+              : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          }`}
+        >
+          <HiOutlineMagnifyingGlass className="size-4 shrink-0" aria-hidden="true" />
+          Inspect
+        </button>
+        <span
+          aria-hidden="true"
+          className="h-6 w-px shrink-0 bg-zinc-200 dark:bg-zinc-800"
+        />
+        <button
+          type="button"
+          onClick={onToggleChat}
+          aria-pressed={mobileSheet === "chat"}
+          className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold transition-all duration-150 active:scale-95 ${
+            mobileSheet === "chat"
+              ? "bg-amber-100 text-amber-800 shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] dark:bg-amber-950 dark:text-amber-200"
+              : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          }`}
+        >
+          <HiOutlineChatBubbleLeftRight className="size-4 shrink-0" aria-hidden="true" />
+          Chat
+          {unreadChat && mobileSheet !== "chat" && (
+            <span
+              aria-hidden="true"
+              className="absolute top-1 right-[28%] h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-zinc-950"
+            />
+          )}
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 border-t border-zinc-200 dark:border-zinc-800">
+        {children}
       </div>
     </div>
   );
