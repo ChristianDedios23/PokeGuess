@@ -53,7 +53,7 @@ export function useRoomSocket({
   const send = useCallback((action: WsAction) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      throw new Error("Not connected");
+      throw new Error("You're not connected right now. Please wait a moment and try again.");
     }
     ws.send(JSON.stringify(action));
   }, []);
@@ -116,7 +116,7 @@ export function useRoomSocket({
 
     ws.onerror = () => {
       setStatus("error");
-      setError("WebSocket connection failed");
+      setError("Lost connection to the game. Please try reconnecting.");
     };
 
     ws.onclose = () => {

@@ -25,7 +25,7 @@ export function CreateRoomForm() {
       saveSession({ roomCode, displayName: name, isHost: true, playerToken });
       router.push(`/room/${roomCode}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create room");
+      setError(err instanceof Error ? err.message : "There was an error creating your room. Please try again.");
       setLoading(false);
     }
   }

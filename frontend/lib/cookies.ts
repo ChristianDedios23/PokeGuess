@@ -1,6 +1,10 @@
+function secureAttr(): string {
+  return typeof location !== "undefined" && location.protocol === "https:" ? "; Secure" : "";
+}
+
 export function setCookie(name: string, value: string, maxAgeSeconds: number): void {
   if (typeof document === "undefined") return;
-  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax${secureAttr()}`;
 }
 
 export function getCookie(name: string): string | null {
@@ -11,5 +15,5 @@ export function getCookie(name: string): string | null {
 
 export function deleteCookie(name: string): void {
   if (typeof document === "undefined") return;
-  document.cookie = `${name}=; path=/; max-age=0`;
+  document.cookie = `${name}=; path=/; max-age=0${secureAttr()}`;
 }

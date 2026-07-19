@@ -191,7 +191,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
       saveSession({ roomCode, displayName: name, isHost: false, playerToken: token });
       setSession(getSession(roomCode));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to join room");
+      setError(err instanceof Error ? err.message : "There was an error joining the room. Please try again.");
     } finally {
       setLoading(false);
     }

@@ -8,7 +8,10 @@ const RESPONSE_ACTIONS: Record<string, string> = {
 export function wsRequest<T>(
   action: string,
   payload: Record<string, unknown> = {},
+  options: { connectionErrorMessage?: string } = {},
 ): Promise<T> {
+  const connectionErrorMessage = options.connectionErrorMessage ?? "Something went wrong. Please try again.";
+
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(WS_URL);
     const expectedAction = RESPONSE_ACTIONS[action];
@@ -38,7 +41,7 @@ export function wsRequest<T>(
       const data = JSON.parse(event.data) as { action: string; message?: string };
 
       if (data.action === "error") {
-        finish(() => reject(new Error(data.message ?? "Request failed")));
+        finish(() => reject(new Error(data.message ?? connectionErrorMessage)));
         return;
       }
 
@@ -48,11 +51,11 @@ export function wsRequest<T>(
     };
 
     ws.onerror = () => {
-      finish(() => reject(new Error("WebSocket connection failed")));
+      finish(() => reject(new Error(connectionErrorMessage)));
     };
 
     ws.onclose = () => {
-      finish(() => reject(new Error("WebSocket closed before response")));
+      finish(() => reject(new Error(connectionErrorMessage)));
     };
   });
 }

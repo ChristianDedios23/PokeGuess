@@ -1,5 +1,6 @@
 import type { HandlerContext, WsMessage } from "./types";
 import { GameError } from "../types/errors";
+import { checkRateLimit } from "../services/rateLimiter";
 import { sendJson } from "../utils/websocket";
 import { handleCreateRoom } from "./createRoom";
 import { handleForfeitGame } from "./forfeitGame";
@@ -33,6 +34,10 @@ export async function handleMessage(ctx: HandlerContext, raw: unknown): Promise<
   let actionLabel = "unknown";
 
   try {
+    if (!checkRateLimit(ctx)) {
+      throw new GameError(429, "Too many messages, slow down");
+    }
+
     const msg = parseMessage(raw);
     actionLabel = msg.action;
 
@@ -86,7 +91,7 @@ export async function handleMessage(ctx: HandlerContext, raw: unknown): Promise<
     }
   } catch (error) {
     const status = error instanceof GameError ? error.status : 500;
-    const message = error instanceof GameError ? error.message : "Internal server error";
+    const message = error instanceof GameError ? error.message : "Something went wrong. Please try again.";
     const durationMs = Math.round(performance.now() - startedAt);
     if (actionLabel !== "ping") {
       console.log(

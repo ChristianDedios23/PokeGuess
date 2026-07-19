@@ -7,7 +7,7 @@ import type { HandlerContext } from "./types";
  * dropped connection, which starts the reconnect grace period.
  */
 export async function handleLeaveRoom(ctx: HandlerContext): Promise<void> {
-  if (!ctx.connectionId) throw new GameError(403, "Not connected");
+  if (!ctx.connectionId) throw new GameError(403, "You're not connected to a room right now.");
 
   ctx.ws.close();
 }

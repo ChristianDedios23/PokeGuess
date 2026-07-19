@@ -6,7 +6,7 @@ import type { HandlerContext } from "../handlers/types";
 export const WS_PATH = "/ws";
 
 export function setupWebSocketServer(server: Server): void {
-  const wss = new WebSocketServer({ server, path: WS_PATH });
+  const wss = new WebSocketServer({ server, path: WS_PATH, maxPayload: 16 * 1024 });
 
   wss.on("connection", (ws) => {
     const ctx: HandlerContext = {

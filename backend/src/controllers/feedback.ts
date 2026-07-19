@@ -46,7 +46,7 @@ export const submitFeedback = async (req: Request, res: Response) => {
     });
     res.status(201).json({ id: report.id });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to save feedback";
-    res.status(503).json({ error: message });
+    console.error("Failed to save feedback report:", error);
+    res.status(503).json({ error: "Unable to save feedback right now. Please try again later." });
   }
 };

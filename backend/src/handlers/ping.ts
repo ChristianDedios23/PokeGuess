@@ -9,6 +9,6 @@ import type { HandlerContext } from "./types";
  * scheduled timer that wouldn't survive a restart or a different instance.
  */
 export async function handlePing(ctx: HandlerContext): Promise<void> {
-  if (!ctx.connectionId) throw new GameError(403, "Not connected");
+  if (!ctx.connectionId) throw new GameError(403, "You're not connected to a room right now.");
   await touchRoomForConnection(ctx.connectionId);
 }

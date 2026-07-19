@@ -137,7 +137,11 @@ export type WsPayload =
 export type WsAction = Record<string, unknown> & { action: string };
 
 export async function createRoom(displayName: string) {
-  const data = await wsRequest<WsRoomCreated>("createRoom", { displayName });
+  const data = await wsRequest<WsRoomCreated>(
+    "createRoom",
+    { displayName },
+    { connectionErrorMessage: "There was an error creating your room. Please try again." },
+  );
   return {
     roomCode: data.roomCode,
     room: data.room,
@@ -147,6 +151,10 @@ export async function createRoom(displayName: string) {
 }
 
 export async function joinRoom(roomCode: string, displayName: string) {
-  const data = await wsRequest<WsJoined>("joinRoom", { roomCode, displayName });
+  const data = await wsRequest<WsJoined>(
+    "joinRoom",
+    { roomCode, displayName },
+    { connectionErrorMessage: "There was an error joining the room. Please try again." },
+  );
   return { room: data.room, connectionId: data.connectionId, playerToken: data.playerToken };
 }

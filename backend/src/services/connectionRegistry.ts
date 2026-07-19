@@ -13,7 +13,7 @@ export function generateConnectionId(): string {
 
 export function getConnectionEntry(connectionId: string) {
   const entry = connections.get(connectionId);
-  if (!entry) throw new GameError(403, "Not connected");
+  if (!entry) throw new GameError(403, "You're not connected to a room right now.");
   return entry;
 }
 

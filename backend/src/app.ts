@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import { routes } from "./routes/index";
 import { logger } from "./middleware/logger";
 const app = express();
@@ -10,6 +11,7 @@ const corsOrigins =
     .filter(Boolean) ?? (process.env.NODE_ENV !== "production" ? ["http://localhost:3001"] : []);
 
 // Application-level middleware
+app.use(helmet());
 app.use(
   cors({
     origin: corsOrigins,
