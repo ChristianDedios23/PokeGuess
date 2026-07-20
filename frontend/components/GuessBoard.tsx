@@ -42,18 +42,22 @@ interface GuessBoardProps {
   align?: "top" | "bottom";
 }
 
-function ruledOutKey(roomCode: string, selfSlot: string): string {
-  return `pokeguess_ruled_out_${roomCode.toUpperCase()}_${selfSlot}`;
+// Scoping the key to the board's own contents (not just room+slot) means a
+// rematch's fresh board — same room, same slot — naturally starts with no
+// ruled-out marks, while a mid-match page refresh (same board) still restores
+// them correctly.
+function ruledOutKey(roomCode: string, selfSlot: string, boardKey: string): string {
+  return `pokeguess_ruled_out_${roomCode.toUpperCase()}_${selfSlot}_${boardKey}`;
 }
 
 function wallpaperKey(roomCode: string, selfSlot: string): string {
   return `pokeguess_wallpaper_${roomCode.toUpperCase()}_${selfSlot}`;
 }
 
-function loadRuledOut(roomCode: string, selfSlot: string): Set<number> {
+function loadRuledOut(roomCode: string, selfSlot: string, boardKey: string): Set<number> {
   if (typeof window === "undefined") return new Set();
   try {
-    const raw = window.localStorage.getItem(ruledOutKey(roomCode, selfSlot));
+    const raw = window.localStorage.getItem(ruledOutKey(roomCode, selfSlot, boardKey));
     if (!raw) return new Set();
     const parsed = JSON.parse(raw) as number[];
     return new Set(parsed);
@@ -62,9 +66,17 @@ function loadRuledOut(roomCode: string, selfSlot: string): Set<number> {
   }
 }
 
-function saveRuledOut(roomCode: string, selfSlot: string, ruledOut: Set<number>): void {
+function saveRuledOut(
+  roomCode: string,
+  selfSlot: string,
+  boardKey: string,
+  ruledOut: Set<number>,
+): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(ruledOutKey(roomCode, selfSlot), JSON.stringify([...ruledOut]));
+  window.localStorage.setItem(
+    ruledOutKey(roomCode, selfSlot, boardKey),
+    JSON.stringify([...ruledOut]),
+  );
 }
 
 function loadWallpaperIndex(roomCode: string, selfSlot: string): number {
@@ -242,8 +254,13 @@ export function GuessBoard({
     };
   }, []);
 
+  const boardKey = board.join(",");
+
   useEffect(() => {
-    setRuledOut(loadRuledOut(roomCode, selfSlot));
+    setRuledOut(loadRuledOut(roomCode, selfSlot, boardKey));
+  }, [roomCode, selfSlot, boardKey]);
+
+  useEffect(() => {
     setWallpaperIndex(loadWallpaperIndex(roomCode, selfSlot));
   }, [roomCode, selfSlot]);
 
@@ -284,7 +301,7 @@ export function GuessBoard({
       } else {
         next.add(id);
       }
-      saveRuledOut(roomCode, selfSlot, next);
+      saveRuledOut(roomCode, selfSlot, boardKey, next);
       return next;
     });
   }

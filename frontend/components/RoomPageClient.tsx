@@ -304,6 +304,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const ownSecretGender = room?.players[selfSlot]?.secretGender ?? "genderless";
   const hasGuessed = Boolean(room?.players[selfSlot]?.guess);
   const opponentSlot: "player1" | "player2" = selfSlot === "player1" ? "player2" : "player1";
+  const opponentHasGuessed = Boolean(room?.players[opponentSlot]?.guess);
   const opponentName = room?.players[opponentSlot]?.displayName ?? "your opponent";
   const selfRematchRequested = Boolean(room?.players[selfSlot]?.rematchRequested);
   const opponentRematchRequested = Boolean(room?.players[opponentSlot]?.rematchRequested);
@@ -656,6 +657,11 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 You&apos;ve made your guess. Waiting for your opponent to make theirs…
               </p>
             )}
+            {!hasGuessed && opponentHasGuessed && (
+              <p className="mb-2 w-full shrink-0 rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                Your opponent has made their guess — ask your last question, then make yours!
+              </p>
+            )}
             <div className="relative min-h-0 w-full flex-1">
               <GuessBoard
                 roomCode={roomCode}
@@ -734,6 +740,11 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
             {hasGuessed && (
               <p className="w-full shrink-0 rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
                 You&apos;ve made your guess. Waiting for your opponent to make theirs…
+              </p>
+            )}
+            {!hasGuessed && opponentHasGuessed && (
+              <p className="w-full shrink-0 rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                Your opponent has made their guess — ask your last question, then make yours!
               </p>
             )}
             <div
