@@ -2,10 +2,19 @@
 
 Multiplayer Pokémon guessing game. Create a room, share the link, ready up, then play and chat.
 
+**Live demo:** [poke-guess-who.vercel.app](https://poke-guess-who.vercel.app)
+
 ## Stack
 
 - **Backend** — Express, DynamoDB, WebSockets (`backend/`)
 - **Frontend** — Next.js (`frontend/`)
+
+## Architecture
+
+- **Frontend** is deployed on Vercel, built from `frontend/` on every push to `main`.
+- **Backend** runs as a Docker container on an AWS EC2 instance, reverse-proxied by nginx with a Let's Encrypt TLS certificate. It authenticates to DynamoDB via an EC2 IAM instance role (no long-lived AWS keys on the box).
+- **Database** is AWS DynamoDB (two tables: `GameRooms` with a TTL for ephemeral room state, `FeedbackReports` for user-submitted bug reports).
+- Deploys are manual and SSH-driven (`backend/deploy/deploy.sh`) rather than CI-based — see `backend/deploy/` for the deploy script and reverse-proxy config.
 
 ## Run locally
 
