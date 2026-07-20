@@ -1,15 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaDoorOpen } from "react-icons/fa";
 import { PiNotePencil } from "react-icons/pi";
-import {
-  DEFAULT_MODIFIERS,
-  ModifiersModal,
-  type GameModifiers,
-} from "@/components/ModifiersModal";
+import { ModifiersModal } from "@/components/ModifiersModal";
 import { RoomCodeReveal } from "@/components/RoomCodeReveal";
-import type { GameRoom, RoomPlayer } from "@/lib/game";
+import type { GameModifiers, GameRoom, RoomPlayer } from "@/lib/game";
+import { DEFAULT_MODIFIERS } from "@/lib/game";
+
+/** Debounce host modifier writes so dragging the turns slider can't spam the WS rate limiter. */
+const MODIFIER_SEND_DEBOUNCE_MS = 200;
 
 interface RoomLobbyProps {
   room: GameRoom;
@@ -19,6 +19,7 @@ interface RoomLobbyProps {
   onReady: () => void;
   onStart: () => void;
   onLeave: () => void;
+  onUpdateModifiers: (next: GameModifiers) => void;
   loading: boolean;
 }
 
@@ -80,6 +81,7 @@ export function RoomLobby({
   onReady,
   onStart,
   onLeave,
+  onUpdateModifiers,
   loading,
 }: RoomLobbyProps) {
   const player1 = room.players.player1;
@@ -97,7 +99,39 @@ export function RoomLobby({
 
   const [linkCopied, setLinkCopied] = useState(false);
   const [modifiersOpen, setModifiersOpen] = useState(false);
-  const [modifiers, setModifiers] = useState<GameModifiers>(DEFAULT_MODIFIERS);
+
+  // The room is the source of truth, but the host edits optimistically so the
+  // UI stays snappy while the debounced write round-trips to the server.
+  const [draftModifiers, setDraftModifiers] = useState<GameModifiers>(() => ({
+    ...DEFAULT_MODIFIERS,
+    ...room.modifiers,
+  }));
+  const pendingSendRef = useRef(false);
+  const debounceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    // Ignore server echoes while our own edit is still in flight.
+    if (pendingSendRef.current) return;
+    setDraftModifiers({ ...DEFAULT_MODIFIERS, ...room.modifiers });
+  }, [room.modifiers]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  function handleModifiersChange(next: GameModifiers) {
+    if (!isHost) return;
+    const merged = { ...DEFAULT_MODIFIERS, ...next };
+    setDraftModifiers(merged);
+    pendingSendRef.current = true;
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => {
+      onUpdateModifiers(merged);
+      pendingSendRef.current = false;
+    }, MODIFIER_SEND_DEBOUNCE_MS);
+  }
 
   async function copyInviteLink() {
     try {
@@ -185,10 +219,12 @@ export function RoomLobby({
 
       <ModifiersModal
         open={modifiersOpen}
-        value={modifiers}
-        onChange={setModifiers}
+        value={draftModifiers}
+        onChange={handleModifiersChange}
         onClose={() => setModifiersOpen(false)}
         readOnly={!isHost}
+        hostName={player1?.displayName ?? "Host"}
+        guestName={player2?.displayName ?? "Guest"}
       />
     </section>
   );

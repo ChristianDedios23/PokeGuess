@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BOARD_COLLECTIONS,
   getCollectionForTheme,
@@ -22,6 +23,7 @@ export function BoardThemePicker({
   onSelect,
   themes,
 }: BoardThemePickerProps) {
+  const [mounted, setMounted] = useState(false);
   const [rendered, setRendered] = useState(open);
   const [visible, setVisible] = useState(false);
   const [activeCollectionId, setActiveCollectionId] = useState(
@@ -34,6 +36,10 @@ export function BoardThemePicker({
   const activeTabIndex = BOARD_COLLECTIONS.findIndex(
     (collection) => collection.id === activeCollection?.id,
   );
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -69,16 +75,25 @@ export function BoardThemePicker({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [rendered, onClose]);
 
-  if (!rendered) return null;
+  if (!mounted || !rendered) return null;
 
-  return (
+  // Portal onto document.body so the scrim covers the full viewport.
+  // GuessBoard sits under CSS transforms (centering / layout shift), which
+  // would otherwise shrink `position: fixed` to that column only.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="themes-title"
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${
-        visible ? "" : "pointer-events-none"
-      }`}
+      className={`p-4 ${visible ? "" : "pointer-events-none"}`}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
     >
       <button
         type="button"
@@ -214,6 +229,7 @@ export function BoardThemePicker({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

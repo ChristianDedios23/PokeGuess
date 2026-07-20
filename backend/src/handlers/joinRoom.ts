@@ -2,7 +2,7 @@ import { getRoom } from "../db/rooms";
 import { GameError } from "../types/errors";
 import { attachPlayer } from "../services/connectionRegistry";
 import { joinRoom } from "../services/roomService";
-import { broadcastToRoom, sendJson } from "../utils/websocket";
+import { broadcastToRoom, sendRoomToConnection } from "../utils/websocket";
 import type { HandlerContext, WsMessage } from "./types";
 
 export async function handleJoinRoom(ctx: HandlerContext, msg: WsMessage): Promise<void> {
@@ -19,12 +19,11 @@ export async function handleJoinRoom(ctx: HandlerContext, msg: WsMessage): Promi
   const updatedRoom = (await getRoom(roomCode))!;
   broadcastToRoom(updatedRoom, { action: "playerJoined", room: updatedRoom }, connectionId);
 
-  sendJson(ctx.ws, {
+  sendRoomToConnection(ctx.ws, updatedRoom, "player2", {
     action: "joined",
     connectionId,
     roomCode,
     isHost: false,
     playerToken,
-    room: updatedRoom,
   });
 }

@@ -3,21 +3,54 @@ import { wsRequest } from "./wsClient";
 export type RoomStatus = "WAITING" | "ACTIVE" | "FINISHED" | "FORFEITED";
 export type PokemonGender = "male" | "female" | "genderless";
 
-export interface PlayerGuess {
-  pokemonId: number;
-  correct: boolean;
+/** "all" means every generation; otherwise a list of selected gen numbers. */
+export type GenerationSelection = "all" | number[];
+export type LeaveTimerValue = "enable" | "disable";
+export type PlayModeValue = "structured" | "freeplay";
+export type GuessingRuleValue = "classic" | "final-showdown" | "casual";
+export type OpponentInteractValue = "yes" | "no";
+export type LimitedTurnsValue = "unlimited" | number;
+/** Who starts in structured play. "random" is re-rolled each match/rematch. */
+export type FirstPlayerValue = "random" | "player1" | "player2";
+
+/** Host-configurable rules that shape how a match plays. Mirrors the backend. */
+export interface GameModifiers {
+  generation: GenerationSelection;
+  leaveTimer: LeaveTimerValue;
+  playMode: PlayModeValue;
+  guessingRule: GuessingRuleValue;
+  opponentInteract: OpponentInteractValue;
+  limitedTurns: LimitedTurnsValue;
+  firstPlayer: FirstPlayerValue;
 }
+
+export const DEFAULT_MODIFIERS: GameModifiers = {
+  generation: "all",
+  leaveTimer: "enable",
+  playMode: "structured",
+  guessingRule: "classic",
+  opponentInteract: "no",
+  limitedTurns: "unlimited",
+  firstPlayer: "random",
+};
 
 export interface RoomPlayer {
   connectionId: string;
   displayName: string;
-  secretPokemonId: number;
-  secretGender: PokemonGender;
+  /** Only present for yourself, or for both players after the match ends. */
+  secretPokemonId?: number;
+  secretGender?: PokemonGender;
   connected: boolean;
   ready: boolean;
   disconnectedAt?: string;
   guess?: PlayerGuess;
   rematchRequested?: boolean;
+}
+
+export interface PlayerGuess {
+  pokemonId: number;
+  /** Omitted for the opponent until the match ends. */
+  correct?: boolean;
 }
 
 /**
@@ -36,7 +69,10 @@ export interface GameRoom {
     player1?: RoomPlayer;
     player2?: RoomPlayer;
   };
+  modifiers: GameModifiers;
   currentTurnPlayer?: "player1" | "player2";
+  /** Turns taken so far (structured play + limited turns). */
+  turnCount?: number;
   winner?: "player1" | "player2";
   createdAt: string;
   updatedAt: string;

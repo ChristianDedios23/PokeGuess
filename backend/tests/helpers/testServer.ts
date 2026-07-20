@@ -15,6 +15,10 @@ export async function startWsTestServer(): Promise<{ server: Server; wsUrl: stri
 }
 
 export async function stopWsTestServer(server: Server): Promise<void> {
+  // Drop lingering sockets so server.close() doesn't hang after a failed test.
+  if (typeof server.closeAllConnections === "function") {
+    server.closeAllConnections();
+  }
   await new Promise<void>((resolve, reject) => {
     server.close((err) => (err ? reject(err) : resolve()));
   });
