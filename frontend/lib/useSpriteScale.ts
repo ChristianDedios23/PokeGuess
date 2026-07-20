@@ -32,6 +32,8 @@ const MANUAL_SCALE_OVERRIDES: Record<number, number> = {
   169: 0.90, // Crobat
   847: 0.75, // Barraskewda
   698: 0.90, // Amaura
+  193: 0.85, // Yanma
+  512: 1.20, // Simisage
 };
 
 // Manual position nudges for sprites whose art sits off-center in the PNG

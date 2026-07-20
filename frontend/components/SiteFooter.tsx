@@ -181,7 +181,7 @@ function SiteInfoModal({
       ? "About"
       : renderedPanel === "terms"
         ? "Terms"
-        : "Contact";
+        : "Contact / Report";
 
   async function handleContactSubmit(event: FormEvent) {
     event.preventDefault();
@@ -448,7 +448,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
             onClick={() => setPanel("contact")}
             className="transition hover:text-zinc-800 dark:hover:text-zinc-200"
           >
-            Contact
+            Contact / Report
           </button>
         </div>
       </footer>

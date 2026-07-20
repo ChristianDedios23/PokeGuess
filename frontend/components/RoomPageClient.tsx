@@ -307,10 +307,14 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const opponentName = room?.players[opponentSlot]?.displayName ?? "your opponent";
   const selfRematchRequested = Boolean(room?.players[selfSlot]?.rematchRequested);
   const opponentRematchRequested = Boolean(room?.players[opponentSlot]?.rematchRequested);
+  const opponentPlayer = room?.players[opponentSlot];
   const opponentDisconnectedAt = gameActive
-    ? room?.players[opponentSlot]?.disconnectedAt
+    ? opponentPlayer?.disconnectedAt
     : undefined;
-  const opponentHasLeft = Boolean(opponentDisconnectedAt) && !room?.players[opponentSlot]?.connected;
+  const opponentHasLeft =
+    Boolean(opponentDisconnectedAt) && !opponentPlayer?.connected;
+  const opponentLeftLobby =
+    gameEnded && Boolean(opponentPlayer) && !opponentPlayer?.connected;
 
   if (!mounted) {
     return (
@@ -406,6 +410,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
         onClose={() => setGameInfoPanel(null)}
       />
 
+      {room?.status !== "WAITING" && (
       <header
         className={`z-20 gap-2 ${
           gameActive
@@ -523,24 +528,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                   : "Offline"}
             </p>
           </div>
-        ) : (
-          <div className="space-y-0.5">
-            <p className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
-              <span
-                aria-hidden="true"
-                className={`h-2 w-2 rounded-full ${statusDotColor}`}
-              />
-              Playing as {displayName}
-              {isHost ? " (Host)" : ""}
-              {" · "}
-              {status === "connected"
-                ? "Connected"
-                : status === "connecting"
-                  ? "Connecting…"
-                  : "Offline"}
-            </p>
-          </div>
-        )}
+        ) : null}
 
         <div className={`flex gap-2 ${gameActive ? "justify-self-end" : ""}`}>
           {gameActive && (
@@ -555,7 +543,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
               {!mobileGameHeader && "Forfeit"}
             </button>
           )}
-          {!gameEnded && (
+          {!gameEnded && room?.status !== "WAITING" && (
             <button
               type="button"
               onClick={requestLeave}
@@ -568,6 +556,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
           )}
         </div>
       </header>
+      )}
 
       {gameActive ? (
         (error || socketError || status === "error" || opponentHasLeft) && (
@@ -628,6 +617,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
           inviteUrl={inviteUrl}
           onReady={handleReady}
           onStart={handleStart}
+          onLeave={requestLeave}
           loading={loading}
         />
       )}
@@ -837,29 +827,34 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
           <GameOverBanner room={room} payload={gameOver} selfSlot={selfSlot} />
 
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-5 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            {opponentRematchRequested && !selfRematchRequested && (
+            {opponentLeftLobby ? (
+              <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                {opponentName} left the lobby.
+              </p>
+            ) : opponentRematchRequested && !selfRematchRequested ? (
               <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
                 {opponentName} wants a rematch!
               </p>
-            )}
-            {selfRematchRequested && !opponentRematchRequested && (
+            ) : selfRematchRequested && !opponentRematchRequested ? (
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 Waiting for {opponentName} to accept the rematch…
               </p>
-            )}
+            ) : null}
 
             <div className="flex flex-wrap justify-center gap-2">
               <button
                 type="button"
                 onClick={handleRequestRematch}
-                disabled={!connectionId || selfRematchRequested}
+                disabled={!connectionId || selfRematchRequested || opponentLeftLobby}
                 className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50 disabled:hover:bg-red-600"
               >
-                {selfRematchRequested
-                  ? "Rematch requested ✓"
-                  : opponentRematchRequested
-                    ? "Accept rematch"
-                    : "Request rematch"}
+                {opponentLeftLobby
+                  ? "Rematch unavailable"
+                  : selfRematchRequested
+                    ? "Rematch requested ✓"
+                    : opponentRematchRequested
+                      ? "Accept rematch"
+                      : "Request rematch"}
               </button>
               <button
                 type="button"
