@@ -510,7 +510,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
               />
             </>
           )
-        ) : room?.status !== "WAITING" ? (
+        ) : (
           <div className="space-y-0.5">
             <h1 className="text-2xl font-bold">Room {roomCode}</h1>
             <p className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
@@ -528,7 +528,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                   : "Offline"}
             </p>
           </div>
-        ) : null}
+        )}
 
         <div className={`flex gap-2 ${gameActive ? "justify-self-end" : ""}`}>
           {gameActive && (
@@ -543,7 +543,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
               {!mobileGameHeader && "Forfeit"}
             </button>
           )}
-          {!gameEnded && room?.status !== "WAITING" && (
+          {!gameEnded && (
             <button
               type="button"
               onClick={requestLeave}
