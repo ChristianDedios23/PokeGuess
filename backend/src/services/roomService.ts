@@ -3,10 +3,22 @@ import { WebSocket } from "ws";
 import { env } from "../config/env";
 import { getAllPokemon, getPokemonById, rollGender } from "../data/pokemon";
 import { getRoom, saveRoom } from "../db/rooms";
-import type { GameRoom, PokemonGender, RoomPlayer, TurnPlayer } from "../db/types";
+import type {
+  GameRoom,
+  GenerationSelection,
+  PokemonGender,
+  RoomPlayer,
+  TurnPlayer,
+} from "../db/types";
 import { GameError } from "../types/errors";
-import { broadcastToRoom, sendJson } from "../utils/websocket";
+import { broadcastToRoom, sendRoomToConnection } from "../utils/websocket";
 import { attachPlayer, getConnectionEntry } from "./connectionRegistry";
+import {
+  DEFAULT_MODIFIERS,
+  idMatchesGenerationSelection,
+  resolveStartingPlayer,
+  validateModifiers,
+} from "./modifiers";
 
 const MAX_DISPLAY_NAME_LENGTH = 24;
 const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -33,8 +45,16 @@ function genderForPokemonId(pokemonId: number): PokemonGender {
   return rollGender(pokemon?.genderRate ?? -1);
 }
 
-function pickBoard(size: number): { board: number[]; boardGenders: PokemonGender[] } {
-  const pool = getAllPokemon().map((pokemon) => pokemon.id);
+function pickBoard(
+  size: number,
+  generation: GenerationSelection = "all",
+): { board: number[]; boardGenders: PokemonGender[] } {
+  const allIds = getAllPokemon().map((pokemon) => pokemon.id);
+  let pool = allIds.filter((id) => idMatchesGenerationSelection(id, generation));
+
+  // Safety net: never let a too-narrow selection starve the board.
+  if (pool.length < size) pool = allIds.slice();
+
   const board: number[] = [];
   const boardGenders: PokemonGender[] = [];
 
@@ -123,6 +143,8 @@ async function generateUniqueRoomCode(): Promise<string> {
  */
 async function resolveExpiredDisconnects(room: GameRoom): Promise<GameRoom> {
   if (room.status !== "ACTIVE") return room;
+  // Leave-timer disabled: a disconnected player is never auto-forfeited.
+  if (room.modifiers?.leaveTimer === "disable") return room;
 
   for (const slot of ["player1", "player2"] as const) {
     const player = room.players[slot];
@@ -178,6 +200,7 @@ export async function createRoom(
         hashToken(playerToken),
       ),
     },
+    modifiers: { ...DEFAULT_MODIFIERS },
     createdAt: now,
     updatedAt: now,
     expiresAt: Math.floor(Date.now() / 1000) + ROOM_TTL_SECONDS,
@@ -247,13 +270,12 @@ export async function registerConnection(
   const connectionId = await attachPlayer(ws, roomCode, slot);
   const updatedRoom = await requireRoom(roomCode);
 
-  sendJson(ws, {
+  sendRoomToConnection(ws, updatedRoom, slot, {
     action: "registered",
     connectionId,
     roomCode,
     displayName: normalizedName,
     isHost: slot === "player1",
-    room: updatedRoom,
   });
 
   // Let the opponent know this player reconnected — otherwise their
@@ -321,8 +343,21 @@ export async function startGameForRoom(connectionId: string): Promise<GameRoom> 
     throw new GameError(409, "Both players must be ready");
   }
 
+  // Regenerate the board now that modifiers (e.g. generation) are locked in —
+  // the initial board at room creation predates any lobby changes.
+  const { board, boardGenders } = pickBoard(BOARD_SIZE, room.modifiers.generation);
+  const secret1 = pickSecretFromBoard(board, boardGenders);
+  const secret2 = pickSecretFromBoard(board, boardGenders);
+
   room.status = "ACTIVE";
-  room.currentTurnPlayer = "player1";
+  room.board = board;
+  room.boardGenders = boardGenders;
+  room.players.player1.secretPokemonId = secret1.secretPokemonId;
+  room.players.player1.secretGender = secret1.secretGender;
+  room.players.player2.secretPokemonId = secret2.secretPokemonId;
+  room.players.player2.secretGender = secret2.secretGender;
+  room.currentTurnPlayer = resolveStartingPlayer(room.modifiers.firstPlayer);
+  room.turnCount = 0;
   room.updatedAt = new Date().toISOString();
   await saveRoom(room);
   broadcastToRoom(room, { action: "gameStarted", room });
@@ -330,9 +365,13 @@ export async function startGameForRoom(connectionId: string): Promise<GameRoom> 
 }
 
 /**
- * Records a player's one-shot final guess. The match only ends once BOTH
- * players have guessed — a single guess just gets recorded and broadcast
- * as a room update so the opponent still gets their turn.
+ * Records a guess. How it resolves depends on the room's guessing rule:
+ *  - classic:        correct → you win; wrong → you lose immediately.
+ *  - final-showdown: first guess locks in, opponent still gets one guess;
+ *                    the match ends once both have guessed (draw logic).
+ *  - casual:         correct → you win; wrong → no elimination (in structured
+ *                    play the turn passes; in freeplay it's a harmless miss).
+ * In structured play a guess is only allowed on your own turn.
  */
 export async function makeGuess(connectionId: string, guessedPokemonId: number): Promise<GameRoom> {
   const { roomCode } = getConnectionEntry(connectionId);
@@ -357,12 +396,58 @@ export async function makeGuess(connectionId: string, guessedPokemonId: number):
   const opponent = room.players[opponentSlot];
   if (!opponent) throw new GameError(409, "Opponent not in room");
 
+  const { playMode, guessingRule } = room.modifiers;
+  if (playMode === "structured" && room.currentTurnPlayer !== slot) {
+    throw new GameError(409, "It's not your turn");
+  }
+
   const correct = guessedPokemonId === opponent.secretPokemonId;
+  const now = new Date().toISOString();
+
+  // --- Classic: a single guess decides the game outright. ---
+  if (guessingRule === "classic") {
+    room.players[slot]!.guess = { pokemonId: guessedPokemonId, correct };
+    room.status = "FINISHED";
+    room.winner = correct ? slot : opponentSlot;
+    room.updatedAt = now;
+    await saveRoom(room);
+    broadcastToRoom(room, { action: "gameOver", room });
+    return room;
+  }
+
+  // --- Casual: correct wins; a wrong guess never ends the game. ---
+  if (guessingRule === "casual") {
+    if (correct) {
+      room.players[slot]!.guess = { pokemonId: guessedPokemonId, correct };
+      room.status = "FINISHED";
+      room.winner = slot;
+      room.updatedAt = now;
+      await saveRoom(room);
+      broadcastToRoom(room, { action: "gameOver", room });
+      return room;
+    }
+
+    // Wrong guess: no record kept (so they can guess again later). In
+    // structured play the miss costs them their turn.
+    room.updatedAt = now;
+    if (playMode === "structured") {
+      return await advanceTurn(room, slot);
+    }
+    await saveRoom(room);
+    broadcastToRoom(room, { action: "roomUpdated", room });
+    return room;
+  }
+
+  // --- Final Showdown: both players guess once, then resolve together. ---
   room.players[slot]!.guess = { pokemonId: guessedPokemonId, correct };
-  room.updatedAt = new Date().toISOString();
+  room.updatedAt = now;
 
   const bothGuessed = Boolean(room.players.player1?.guess && room.players.player2?.guess);
   if (!bothGuessed) {
+    if (playMode === "structured") {
+      // Hand the turn to the opponent so they get their final guess.
+      room.currentTurnPlayer = opponentSlot;
+    }
     await saveRoom(room);
     broadcastToRoom(room, { action: "roomUpdated", room });
     return room;
@@ -376,6 +461,78 @@ export async function makeGuess(connectionId: string, guessedPokemonId: number):
   await saveRoom(room);
 
   broadcastToRoom(room, { action: "gameOver", room });
+  return room;
+}
+
+/**
+ * Passes the turn to the opponent in structured play, advancing the turn
+ * counter. When a Limited Turns cap is reached the match ends in a draw.
+ * Shared by the End Turn action and casual wrong-guess handling.
+ */
+async function advanceTurn(room: GameRoom, currentSlot: TurnPlayer): Promise<GameRoom> {
+  const opponentSlot: TurnPlayer = currentSlot === "player1" ? "player2" : "player1";
+  const nextTurnCount = (room.turnCount ?? 0) + 1;
+  const { limitedTurns } = room.modifiers;
+
+  // Cap is per player, so the total turn budget is limit * 2.
+  if (typeof limitedTurns === "number" && nextTurnCount >= limitedTurns * 2) {
+    room.turnCount = nextTurnCount;
+    room.status = "FINISHED";
+    room.winner = undefined; // ran out of turns — nobody wins
+    room.updatedAt = new Date().toISOString();
+    await saveRoom(room);
+    broadcastToRoom(room, { action: "gameOver", room });
+    return room;
+  }
+
+  room.turnCount = nextTurnCount;
+  room.currentTurnPlayer = opponentSlot;
+  room.updatedAt = new Date().toISOString();
+  await saveRoom(room);
+  broadcastToRoom(room, { action: "roomUpdated", room });
+  return room;
+}
+
+/** Structured play: the current player voluntarily ends their turn. */
+export async function endTurn(connectionId: string): Promise<GameRoom> {
+  const { roomCode } = getConnectionEntry(connectionId);
+
+  const room = await requireRoom(roomCode);
+  if (room.status !== "ACTIVE") throw new GameError(409, "Game is not active");
+  if (room.modifiers.playMode !== "structured") {
+    throw new GameError(409, "Turns aren't tracked in this mode");
+  }
+
+  const slot = findPlayerSlotByConnectionId(room, connectionId);
+  if (!slot) throw new GameError(403, "Player not in room");
+  if (room.currentTurnPlayer !== slot) throw new GameError(409, "It's not your turn");
+
+  return await advanceTurn(room, slot);
+}
+
+/**
+ * Host updates the match modifiers while the room is still in the lobby.
+ * Broadcast so the guest's Modifiers panel stays in sync live.
+ */
+export async function updateRoomModifiers(
+  connectionId: string,
+  rawModifiers: unknown,
+): Promise<GameRoom> {
+  const { roomCode } = getConnectionEntry(connectionId);
+  const modifiers = validateModifiers(rawModifiers);
+
+  const room = await requireRoom(roomCode);
+  if (room.status !== "WAITING") {
+    throw new GameError(409, "Modifiers can only be changed before the game starts");
+  }
+
+  const slot = findPlayerSlotByConnectionId(room, connectionId);
+  if (slot !== "player1") throw new GameError(403, "Only the host can change modifiers");
+
+  room.modifiers = modifiers;
+  room.updatedAt = new Date().toISOString();
+  await saveRoom(room);
+  broadcastToRoom(room, { action: "roomUpdated", room });
   return room;
 }
 
@@ -444,7 +601,7 @@ export async function requestRematch(connectionId: string): Promise<GameRoom> {
       return saved;
     }
 
-    const { board, boardGenders } = pickBoard(BOARD_SIZE);
+    const { board, boardGenders } = pickBoard(BOARD_SIZE, saved.modifiers.generation);
     const secret1 = pickSecretFromBoard(board, boardGenders);
     const secret2 = pickSecretFromBoard(board, boardGenders);
     const rematchedRoom: GameRoom = {
@@ -452,7 +609,8 @@ export async function requestRematch(connectionId: string): Promise<GameRoom> {
       status: "ACTIVE",
       board,
       boardGenders,
-      currentTurnPlayer: "player1",
+      currentTurnPlayer: resolveStartingPlayer(saved.modifiers.firstPlayer),
+      turnCount: 0,
       winner: undefined,
       updatedAt: new Date().toISOString(),
       players: {

@@ -1,5 +1,6 @@
 import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { getPokemonById, rollGender } from "../data/pokemon";
+import { DEFAULT_MODIFIERS } from "../services/modifiers";
 import { docClient } from "./client";
 import { GAME_ROOMS_TABLE } from "./tables";
 import type { GameRoom, PokemonGender, RoomPlayer } from "./types";
@@ -26,6 +27,8 @@ function normalizeRoom(room: GameRoom): GameRoom {
   return {
     ...room,
     boardGenders,
+    // Backfill rooms created before modifiers existed.
+    modifiers: { ...DEFAULT_MODIFIERS, ...room.modifiers },
     players: {
       player1: normalizePlayer(room.players.player1),
       player2: normalizePlayer(room.players.player2),

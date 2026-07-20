@@ -12,6 +12,8 @@ interface UseRoomSocketOptions {
   displayName: string;
   playerToken: string | undefined;
   enabled: boolean;
+  /** Only needed while a match is ACTIVE (disconnect grace / auto-forfeit). */
+  gracePingEnabled?: boolean;
   onRoomUpdate: (room: GameRoom) => void;
   onGameStarted: (room: GameRoom) => void;
   onGameOver: (payload: WsGameOver) => void;
@@ -24,6 +26,7 @@ export function useRoomSocket({
   displayName,
   playerToken,
   enabled,
+  gracePingEnabled = false,
   onRoomUpdate,
   onGameStarted,
   onGameOver,
@@ -132,20 +135,20 @@ export function useRoomSocket({
     };
   }, [connect]);
 
-  // Periodically nudges the server to re-check the room while connected.
-  // This is what actually resolves a disconnected opponent's grace period —
-  // the server no longer relies on a live in-process timer for that.
+  // During ACTIVE matches only: nudge the server so it can lazily resolve a
+  // disconnected opponent's grace period (no in-process timer). Lobby / post-
+  // game idle rooms skip this to avoid pointless Dynamo reads (~every 12s).
   useEffect(() => {
-    if (status !== "connected") return;
+    if (status !== "connected" || !gracePingEnabled) return;
     const interval = setInterval(() => {
       try {
         send({ action: "ping" });
       } catch {
         // Socket likely just closed; the next connect cycle resumes this.
       }
-    }, 8000);
+    }, 12_000);
     return () => clearInterval(interval);
-  }, [status, send]);
+  }, [status, send, gracePingEnabled]);
 
   return { status, connectionId, error, reconnect: connect, send };
 }

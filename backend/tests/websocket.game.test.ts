@@ -31,10 +31,12 @@ describe("WebSocket game flow", () => {
     env.forfeitGraceMs = defaultForfeitGraceMs;
   });
 
-  it("runs create → register → join → ready → start → chat → guess", async () => {
+  it("runs create → register → join → ready → start → chat → guess (final showdown)", async () => {
     if (!dynamoAvailable) return;
 
-    const { roomCode, host, guest } = await setupActiveGame(wsUrl);
+    const { roomCode, host, guest } = await setupActiveGame(wsUrl, {
+      modifiers: { guessingRule: "final-showdown" },
+    });
 
     const chatReceived = waitForAction(host, "chatMessage");
     guest.send(JSON.stringify({ action: "sendChatMessage", message: "hello" }));
@@ -77,10 +79,12 @@ describe("WebSocket game flow", () => {
     guest.close();
   });
 
-  it("does not let a player submit a second guess", async () => {
+  it("does not let a player submit a second guess (final showdown)", async () => {
     if (!dynamoAvailable) return;
 
-    const { roomCode, host, guest } = await setupActiveGame(wsUrl);
+    const { roomCode, host, guest } = await setupActiveGame(wsUrl, {
+      modifiers: { guessingRule: "final-showdown" },
+    });
     const room = await getRoom(roomCode);
     const guestSecretId = room!.players.player2!.secretPokemonId;
 
@@ -98,6 +102,93 @@ describe("WebSocket game flow", () => {
         host.send(JSON.stringify({ action: "makeGuess", pokemonId: guestSecretId }));
       }),
     ).rejects.toThrow(/already made your guess/i);
+
+    host.close();
+    guest.close();
+  });
+
+  it("classic (default): a correct guess ends the match immediately", async () => {
+    if (!dynamoAvailable) return;
+
+    const { roomCode, host, guest } = await setupActiveGame(wsUrl);
+    const room = await getRoom(roomCode);
+    const guestSecretId = room!.players.player2!.secretPokemonId;
+
+    const hostGameOver = waitForAction(host, "gameOver");
+    const guestGameOver = waitForAction(guest, "gameOver");
+    host.send(JSON.stringify({ action: "makeGuess", pokemonId: guestSecretId }));
+    const [hostResult] = await Promise.all([hostGameOver, guestGameOver]);
+
+    expect((hostResult as { room?: unknown }).room).toMatchObject({
+      status: "FINISHED",
+      winner: "player1",
+    });
+
+    host.close();
+    guest.close();
+  });
+
+  it("classic (default): a wrong guess loses on the spot", async () => {
+    if (!dynamoAvailable) return;
+
+    const { roomCode, host, guest } = await setupActiveGame(wsUrl);
+    const room = await getRoom(roomCode);
+    const guestSecretId = room!.players.player2!.secretPokemonId;
+    const wrongGuessId = room!.board.find((id) => id !== guestSecretId)!;
+
+    const hostGameOver = waitForAction(host, "gameOver");
+    const guestGameOver = waitForAction(guest, "gameOver");
+    host.send(JSON.stringify({ action: "makeGuess", pokemonId: wrongGuessId }));
+    const [hostResult] = await Promise.all([hostGameOver, guestGameOver]);
+
+    expect((hostResult as { room?: unknown }).room).toMatchObject({
+      status: "FINISHED",
+      winner: "player2",
+    });
+
+    host.close();
+    guest.close();
+  });
+
+  it("structured: rejects a guess when it isn't your turn", async () => {
+    if (!dynamoAvailable) return;
+
+    const { roomCode, host, guest } = await setupActiveGame(wsUrl, {
+      modifiers: { playMode: "structured", guessingRule: "final-showdown" },
+    });
+    const room = await getRoom(roomCode);
+    const hostSecretId = room!.players.player1!.secretPokemonId;
+
+    // player1 has the first turn, so the guest guessing should be rejected.
+    await expect(
+      new Promise((resolve, reject) => {
+        guest.once("message", (raw) => {
+          const data = JSON.parse(raw.toString()) as { action: string; message?: string };
+          if (data.action === "error") reject(new Error(data.message));
+          else resolve(data);
+        });
+        guest.send(JSON.stringify({ action: "makeGuess", pokemonId: hostSecretId }));
+      }),
+    ).rejects.toThrow(/not your turn/i);
+
+    host.close();
+    guest.close();
+  });
+
+  it("structured: endTurn hands the turn to the opponent", async () => {
+    if (!dynamoAvailable) return;
+
+    const { roomCode, host, guest } = await setupActiveGame(wsUrl, {
+      modifiers: { playMode: "structured" },
+    });
+
+    const guestSeesUpdate = waitForAction(guest, "roomUpdated");
+    host.send(JSON.stringify({ action: "endTurn" }));
+    await guestSeesUpdate;
+
+    const room = await getRoom(roomCode);
+    expect(room!.currentTurnPlayer).toBe("player2");
+    expect(room!.turnCount).toBe(1);
 
     host.close();
     guest.close();

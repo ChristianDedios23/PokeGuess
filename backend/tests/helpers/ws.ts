@@ -1,4 +1,6 @@
 import WebSocket from "ws";
+import type { GameModifiers } from "../../src/db/types";
+import { DEFAULT_MODIFIERS } from "../../src/services/modifiers";
 
 export function wsOnce<T>(
   wsUrl: string,
@@ -75,7 +77,10 @@ export interface ActiveGame {
   guestToken: string;
 }
 
-export async function setupActiveGame(wsUrl: string): Promise<ActiveGame> {
+export async function setupActiveGame(
+  wsUrl: string,
+  options?: { modifiers?: Partial<GameModifiers> },
+): Promise<ActiveGame> {
   const created = await wsOnce<{ roomCode: string; playerToken: string }>(
     wsUrl,
     { action: "createRoom", displayName: "Host" },
@@ -89,6 +94,21 @@ export async function setupActiveGame(wsUrl: string): Promise<ActiveGame> {
     JSON.stringify({ action: "register", roomCode, displayName: "Host", playerToken: hostToken }),
   );
   await waitForAction(host, "registered");
+
+  // Always pin firstPlayer so turn-order assertions stay deterministic.
+  // Apply while the host is alone so readyUp/register can't clobber it.
+  const applied = waitForAction(host, "roomUpdated");
+  host.send(
+    JSON.stringify({
+      action: "updateModifiers",
+      modifiers: {
+        ...DEFAULT_MODIFIERS,
+        firstPlayer: "player1",
+        ...options?.modifiers,
+      },
+    }),
+  );
+  await applied;
 
   const joined = await wsOnce<{ playerToken: string }>(
     wsUrl,
@@ -108,8 +128,11 @@ export async function setupActiveGame(wsUrl: string): Promise<ActiveGame> {
   );
   await waitForAction(guest, "registered");
 
-  const bothReady = waitForBothReady([host, guest]);
+  const hostReady = waitForAction(host, "roomUpdated");
   host.send(JSON.stringify({ action: "readyUp" }));
+  await hostReady;
+
+  const bothReady = waitForBothReady([host, guest]);
   guest.send(JSON.stringify({ action: "readyUp" }));
   await bothReady;
 

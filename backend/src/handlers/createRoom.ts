@@ -2,7 +2,7 @@ import { getRoom } from "../db/rooms";
 import { GameError } from "../types/errors";
 import { attachPlayer } from "../services/connectionRegistry";
 import { createRoom } from "../services/roomService";
-import { sendJson } from "../utils/websocket";
+import { sendRoomToConnection } from "../utils/websocket";
 import type { HandlerContext, WsMessage } from "./types";
 
 export async function handleCreateRoom(ctx: HandlerContext, msg: WsMessage): Promise<void> {
@@ -15,12 +15,11 @@ export async function handleCreateRoom(ctx: HandlerContext, msg: WsMessage): Pro
 
   const updatedRoom = (await getRoom(room.roomCode))!;
 
-  sendJson(ctx.ws, {
+  sendRoomToConnection(ctx.ws, updatedRoom, "player1", {
     action: "roomCreated",
     connectionId,
     roomCode: room.roomCode,
     isHost: true,
     playerToken,
-    room: updatedRoom,
   });
 }

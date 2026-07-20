@@ -31,8 +31,8 @@ import { RoomLobby } from "@/components/RoomLobby";
 import { ScoreBar } from "@/components/ScoreBar";
 import { SecretPokemonPanel, YourPokemonCard } from "@/components/SecretPokemonPanel";
 import { SecretRevealScreen } from "@/components/SecretRevealScreen";
-import type { ChatMessage, GameRoom, PokemonGender, WsGameOver } from "@/lib/game";
-import { FORFEIT_GRACE_MS, joinRoom } from "@/lib/game";
+import type { ChatMessage, GameModifiers, GameRoom, PokemonGender, WsGameOver } from "@/lib/game";
+import { DEFAULT_MODIFIERS, FORFEIT_GRACE_MS, joinRoom } from "@/lib/game";
 import { getSession, saveSession, type PlayerSession } from "@/lib/session";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useRoomSocket } from "@/lib/useRoomSocket";
@@ -165,6 +165,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
     displayName,
     playerToken,
     enabled: hasSession,
+    gracePingEnabled: room?.status === "ACTIVE",
     onRoomUpdate: handleRoomUpdate,
     onGameStarted: handleGameStarted,
     onGameOver: handleGameOver,
@@ -220,6 +221,27 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
       setError(err instanceof Error ? err.message : "Failed to start game");
     } finally {
       setLoading(false);
+    }
+  }
+
+  const handleUpdateModifiers = useCallback(
+    (next: GameModifiers) => {
+      try {
+        send({ action: "updateModifiers", modifiers: next });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to update modifiers");
+      }
+    },
+    [send],
+  );
+
+  function handleEndTurn() {
+    if (!connectionId) return;
+    setError(null);
+    try {
+      send({ action: "endTurn" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to end turn");
     }
   }
 
@@ -293,6 +315,19 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const gameActive = room?.status === "ACTIVE";
   const gameEnded = room?.status === "FINISHED" || room?.status === "FORFEITED";
   const mobileGameHeader = gameActive && isMobileLayout;
+
+  const modifiers = { ...DEFAULT_MODIFIERS, ...(room?.modifiers ?? {}) };
+  const isStructured = modifiers.playMode === "structured";
+  const isFinalShowdown = modifiers.guessingRule === "final-showdown";
+  const isMyTurn = !isStructured || room?.currentTurnPlayer === selfSlot;
+  // In structured play with opponent interaction off, your board locks while
+  // it isn't your turn so you can't cross Pokémon off during the opponent's turn.
+  const boardLocked =
+    gameActive && isStructured && modifiers.opponentInteract === "no" && !isMyTurn;
+  const turnsLeft =
+    typeof modifiers.limitedTurns === "number"
+      ? Math.max(0, modifiers.limitedTurns * 2 - (room?.turnCount ?? 0))
+      : null;
 
   useEffect(() => {
     if (!gameActive) {
@@ -390,6 +425,71 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
           ? "bg-red-500"
           : "bg-zinc-400";
 
+  const canSubmitGuess = Boolean(connectionId) && !hasGuessed && (!isStructured || isMyTurn);
+
+  // Structured play: whose-turn banner (+ remaining turns when capped).
+  const structuredBanner =
+    isStructured && gameActive ? (
+      <div
+        className={`mx-auto w-fit shrink-0 rounded-lg py-1.5 text-center text-sm ${
+          isMyTurn
+            ? "bg-green-50 font-medium text-green-800 dark:bg-green-950 dark:text-green-300"
+            : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+        }`}
+        style={{ paddingLeft: 50, paddingRight: 50 }}
+      >
+        <span>{isMyTurn ? "Your turn" : `Waiting for ${opponentName}'s turn…`}</span>
+        {turnsLeft !== null && (
+          <span className="ml-2 text-xs tabular-nums opacity-80">
+            · {turnsLeft} turns left
+          </span>
+        )}
+      </div>
+    ) : null;
+
+  // Final Showdown is the only rule where a guess is recorded and both players
+  // still get to act, so its "waiting" messaging only applies there.
+  const guessWaitingBanner = isFinalShowdown ? (
+    <>
+      {hasGuessed && (
+        <p className="mb-2 w-full shrink-0 rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+          You&apos;ve made your guess. Waiting for your opponent to make theirs…
+        </p>
+      )}
+      {!hasGuessed && opponentHasGuessed && (
+        <p className="mb-2 w-full shrink-0 rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+          Your opponent has made their guess — ask your last question, then make yours!
+        </p>
+      )}
+    </>
+  ) : null;
+
+  const endTurnButton =
+    isStructured && gameActive ? (
+      <button
+        type="button"
+        onClick={handleEndTurn}
+        disabled={!connectionId || !isMyTurn || hasGuessed}
+        style={{ fontFamily: "var(--font-fredoka)" }}
+        className="shrink-0 rounded-full bg-gradient-to-b from-zinc-600 to-zinc-700 px-4 py-2 text-xs font-bold text-white shadow-[0_3px_0_0_rgba(39,39,42,1),0_6px_10px_-2px_rgba(0,0,0,0.3)] transition hover:brightness-110 active:translate-y-[2px] active:shadow-[0_1px_0_0_rgba(39,39,42,1)] disabled:opacity-50"
+      >
+        End turn
+      </button>
+    ) : null;
+
+  const submitGuessButton =
+    selectedGuessId !== null ? (
+      <button
+        type="button"
+        onClick={handleSubmitGuess}
+        disabled={!canSubmitGuess}
+        style={{ fontFamily: "var(--font-fredoka)" }}
+        className="shrink-0 rounded-full bg-gradient-to-b from-red-500 to-red-600 px-4 py-2 text-xs font-bold text-white shadow-[0_3px_0_0_rgba(153,27,27,1),0_6px_10px_-2px_rgba(0,0,0,0.3)] transition hover:brightness-105 active:translate-y-[2px] active:shadow-[0_1px_0_0_rgba(153,27,27,1)] disabled:opacity-50"
+      >
+        {confirmingGuess ? "Confirm final guess?" : "Submit guess"}
+      </button>
+    ) : null;
+
   return (
     <div
       className={`mx-auto flex w-full flex-col ${
@@ -409,6 +509,9 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
       <GameInfoModal
         panel={gameInfoPanel}
         onClose={() => setGameInfoPanel(null)}
+        modifiers={modifiers}
+        hostName={room?.players.player1?.displayName ?? "Host"}
+        guestName={room?.players.player2?.displayName ?? "Guest"}
       />
 
       {room?.status !== "WAITING" && (
@@ -483,7 +586,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                   }`}
                 >
                   <IoIosPaper className="size-3.5 shrink-0" aria-hidden="true" />
-                  Rules
+                  Game Rules
                 </button>
                 <button
                   type="button"
@@ -619,6 +722,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
           onReady={handleReady}
           onStart={handleStart}
           onLeave={requestLeave}
+          onUpdateModifiers={handleUpdateModifiers}
           loading={loading}
         />
       )}
@@ -635,30 +739,23 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
           </div>
 
           <div className="relative order-1 flex min-h-0 min-w-0 w-full flex-1 flex-col self-stretch lg:order-2 lg:h-[82.5%] lg:self-center">
-            <ScoreBar
-              className="pointer-events-none absolute right-0 bottom-full left-0 z-10 mb-2 -translate-y-2"
-              player1Name={room.players.player1?.displayName ?? "Player 1"}
-              player2Name={room.players.player2?.displayName ?? "Player 2"}
-              score1={score.player1}
-              score2={score.player2}
-            />
-            {hasGuessed && (
-              <p className="mb-2 w-full shrink-0 rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                You&apos;ve made your guess. Waiting for your opponent to make theirs…
-              </p>
-            )}
-            {!hasGuessed && opponentHasGuessed && (
-              <p className="mb-2 w-full shrink-0 rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                Your opponent has made their guess — ask your last question, then make yours!
-              </p>
-            )}
+            <div className="pointer-events-none absolute right-0 bottom-full left-0 z-10 mb-2 flex -translate-y-2 flex-col gap-2">
+              {structuredBanner}
+              <ScoreBar
+                player1Name={room.players.player1?.displayName ?? "Player 1"}
+                player2Name={room.players.player2?.displayName ?? "Player 2"}
+                score1={score.player1}
+                score2={score.player2}
+              />
+            </div>
+            {guessWaitingBanner}
             <div className="relative min-h-0 w-full flex-1">
               <GuessBoard
                 roomCode={roomCode}
                 selfSlot={selfSlot}
                 board={room.board}
                 boardGenders={room.boardGenders ?? []}
-                disabled={!connectionId || hasGuessed}
+                disabled={!connectionId || hasGuessed || boardLocked}
                 selected={selectedGuessId}
                 onSelectForGuess={handleSelectForGuess}
                 onHoverPokemon={(pokemonId, gender) => {
@@ -683,17 +780,10 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 }
               }}
             />
-            {selectedGuessId !== null && (
-              <div className="flex shrink-0 justify-center pt-2">
-                <button
-                  type="button"
-                  onClick={handleSubmitGuess}
-                  disabled={!connectionId || hasGuessed}
-                  style={{ fontFamily: "var(--font-fredoka)" }}
-                  className="shrink-0 rounded-full bg-gradient-to-b from-red-500 to-red-600 px-4 py-2 text-xs font-bold text-white shadow-[0_3px_0_0_rgba(153,27,27,1),0_6px_10px_-2px_rgba(0,0,0,0.3)] transition hover:brightness-105 active:translate-y-[2px] active:shadow-[0_1px_0_0_rgba(153,27,27,1)] disabled:opacity-50"
-                >
-                  {confirmingGuess ? "Confirm final guess?" : "Submit guess"}
-                </button>
+            {(endTurnButton || submitGuessButton) && (
+              <div className="flex shrink-0 items-center justify-center gap-3 pt-2">
+                {endTurnButton}
+                {submitGuessButton}
               </div>
             )}
           </div>
@@ -720,6 +810,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
       {room && gameActive && isMobileLayout && (
         <>
           <div className="flex h-full min-h-0 flex-col gap-2 pb-16">
+            {structuredBanner}
             <ScoreBar
               className="shrink-0"
               player1Name={room.players.player1?.displayName ?? "Player 1"}
@@ -727,16 +818,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
               score1={score.player1}
               score2={score.player2}
             />
-            {hasGuessed && (
-              <p className="w-full shrink-0 rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                You&apos;ve made your guess. Waiting for your opponent to make theirs…
-              </p>
-            )}
-            {!hasGuessed && opponentHasGuessed && (
-              <p className="w-full shrink-0 rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                Your opponent has made their guess — ask your last question, then make yours!
-              </p>
-            )}
+            {guessWaitingBanner}
             <div
               className="relative min-h-0 w-full"
               style={{ aspectRatio: "840 / 710" }}
@@ -746,7 +828,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 selfSlot={selfSlot}
                 board={room.board}
                 boardGenders={room.boardGenders ?? []}
-                disabled={!connectionId || hasGuessed}
+                disabled={!connectionId || hasGuessed || boardLocked}
                 selected={selectedGuessId}
                 onSelectForGuess={handleSelectForGuess}
                 onHoverPokemon={(pokemonId, gender) => {
@@ -772,17 +854,8 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                   }
                 }}
               />
-              {selectedGuessId !== null && (
-                <button
-                  type="button"
-                  onClick={handleSubmitGuess}
-                  disabled={!connectionId || hasGuessed}
-                  style={{ fontFamily: "var(--font-fredoka)" }}
-                  className="shrink-0 rounded-full bg-gradient-to-b from-red-500 to-red-600 px-4 py-2 text-xs font-bold text-white shadow-[0_3px_0_0_rgba(153,27,27,1),0_6px_10px_-2px_rgba(0,0,0,0.3)] transition hover:brightness-105 active:translate-y-[2px] active:shadow-[0_1px_0_0_rgba(153,27,27,1)] disabled:opacity-50"
-                >
-                  {confirmingGuess ? "Confirm final guess?" : "Submit guess"}
-                </button>
-              )}
+              {endTurnButton}
+              {submitGuessButton}
             </div>
           </div>
 

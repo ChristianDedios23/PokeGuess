@@ -1,5 +1,6 @@
 import { verifyDynamoConnection } from "../../src/db/health";
 import type { GameRoom } from "../../src/db/types";
+import { DEFAULT_MODIFIERS } from "../../src/services/modifiers";
 
 export async function isDynamoAvailable(): Promise<boolean> {
   try {
@@ -18,6 +19,7 @@ export function makeTestRoom(roomCode: string): GameRoom {
     board: [],
     boardGenders: [],
     players: {},
+    modifiers: { ...DEFAULT_MODIFIERS },
     createdAt: now,
     updatedAt: now,
     expiresAt: Math.floor(Date.now() / 1000) + 3600,

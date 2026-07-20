@@ -1,32 +1,11 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-
-/** "all" means every generation; otherwise a list of selected gen numbers. */
-export type GenerationSelection = "all" | number[];
-export type LeaveTimerValue = "enable" | "disable";
-export type PlayModeValue = "structured" | "freeplay";
-export type GuessingRuleValue = "classic" | "final-showdown" | "casual";
-export type OpponentInteractValue = "yes" | "no";
-export type LimitedTurnsValue = "unlimited" | number;
-
-export interface GameModifiers {
-  generation: GenerationSelection;
-  leaveTimer: LeaveTimerValue;
-  playMode: PlayModeValue;
-  guessingRule: GuessingRuleValue;
-  opponentInteract: OpponentInteractValue;
-  limitedTurns: LimitedTurnsValue;
-}
-
-export const DEFAULT_MODIFIERS: GameModifiers = {
-  generation: "all",
-  leaveTimer: "enable",
-  playMode: "freeplay",
-  guessingRule: "classic",
-  opponentInteract: "no",
-  limitedTurns: "unlimited",
-};
+import type {
+  GameModifiers,
+  GuessingRuleValue,
+  PlayModeValue,
+} from "@/lib/game";
 
 const GENERATION_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 const GENERATION_ROMAN: Record<number, string> = {
@@ -76,7 +55,7 @@ function Pill({
       aria-pressed={active}
       className={`rounded-full border px-3 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
         active
-          ? "border-amber-400 bg-amber-100 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
+          ? "border-green-400 bg-green-100 text-green-800 dark:border-green-500 dark:bg-green-950 dark:text-green-200"
           : "border-zinc-300 bg-white text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-zinc-100"
       }`}
     >
@@ -115,6 +94,8 @@ interface ModifiersModalProps {
   onChange: (next: GameModifiers) => void;
   onClose: () => void;
   readOnly?: boolean;
+  hostName?: string;
+  guestName?: string;
 }
 
 export function ModifiersModal({
@@ -123,6 +104,8 @@ export function ModifiersModal({
   onChange,
   onClose,
   readOnly = false,
+  hostName = "Host",
+  guestName = "Guest",
 }: ModifiersModalProps) {
   const [rendered, setRendered] = useState(open);
   const [visible, setVisible] = useState(false);
@@ -236,7 +219,7 @@ export function ModifiersModal({
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
           <Section
             title="Generations"
-            description="Pick one or more generations to draw the Pokémon pool from. Choose 'All' to include every generation — selecting it clears the individual picks, and picking every generation flips back to 'All'."
+            description="Select the generations to draw the Pokémon pool from."
           >
             <div className="flex flex-wrap gap-1.5">
               <Pill
@@ -261,7 +244,7 @@ export function ModifiersModal({
 
           <Section
             title="Leave Timer"
-            description="When enabled, a disconnected player has a grace period to reconnect before auto-forfeiting."
+            description="When enabled, a disconnected player has a 30 second grace period to reconnect before auto-forfeiting."
           >
             <div className="flex flex-wrap gap-1.5">
               <Pill
@@ -339,6 +322,41 @@ export function ModifiersModal({
               </p>
 
               <Section
+                title="Who Goes First"
+                description={
+                  value.firstPlayer === "random"
+                    ? "A player is picked at random when the match starts (and again on rematch)."
+                    : value.firstPlayer === "player1"
+                      ? `${hostName} always opens the match.`
+                      : `${guestName} always opens the match.`
+                }
+              >
+                <div className="flex flex-wrap gap-1.5">
+                  <Pill
+                    active={value.firstPlayer === "random"}
+                    onClick={() => update("firstPlayer", "random")}
+                    disabled={readOnly}
+                  >
+                    Randomize
+                  </Pill>
+                  <Pill
+                    active={value.firstPlayer === "player1"}
+                    onClick={() => update("firstPlayer", "player1")}
+                    disabled={readOnly}
+                  >
+                    {hostName}
+                  </Pill>
+                  <Pill
+                    active={value.firstPlayer === "player2"}
+                    onClick={() => update("firstPlayer", "player2")}
+                    disabled={readOnly}
+                  >
+                    {guestName}
+                  </Pill>
+                </div>
+              </Section>
+
+              <Section
                 title="Limited Turns"
                 description="Cap how many turns each player gets, or leave it unlimited."
               >
@@ -363,7 +381,7 @@ export function ModifiersModal({
                         update("limitedTurns", Number(event.target.value))
                       }
                       disabled={readOnly}
-                      className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-zinc-200 accent-amber-500 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-700"
+                      className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-zinc-200 accent-green-500 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-700"
                     />
                     <span className="w-14 shrink-0 text-right text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-200">
                       {value.limitedTurns === "unlimited"

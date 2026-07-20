@@ -3,6 +3,7 @@ import { GameError } from "../types/errors";
 import { checkRateLimit } from "../services/rateLimiter";
 import { sendJson } from "../utils/websocket";
 import { handleCreateRoom } from "./createRoom";
+import { handleEndTurn } from "./endTurn";
 import { handleForfeitGame } from "./forfeitGame";
 import { handleJoinRoom } from "./joinRoom";
 import { handleLeaveRoom } from "./leaveRoom";
@@ -13,9 +14,8 @@ import { handleReadyUp } from "./readyUp";
 import { handleRequestRematch } from "./requestRematch";
 import { handleSendChatMessage } from "./sendChatMessage";
 import { handleStartGame } from "./startGame";
+import { handleUpdateModifiers } from "./updateModifiers";
 import { handleDisconnect as disconnectConnection } from "../services/connectionRegistry";
-
-const NOT_IMPLEMENTED = new Set(["endTurn"]);
 
 function parseMessage(raw: unknown): WsMessage {
   const text =
@@ -41,10 +41,6 @@ export async function handleMessage(ctx: HandlerContext, raw: unknown): Promise<
     const msg = parseMessage(raw);
     actionLabel = msg.action;
 
-    if (NOT_IMPLEMENTED.has(msg.action)) {
-      throw new GameError(501, `${msg.action} is not implemented yet`);
-    }
-
     switch (msg.action) {
       case "createRoom":
         await handleCreateRoom(ctx, msg);
@@ -61,8 +57,14 @@ export async function handleMessage(ctx: HandlerContext, raw: unknown): Promise<
       case "startGame":
         await handleStartGame(ctx);
         break;
+      case "updateModifiers":
+        await handleUpdateModifiers(ctx, msg);
+        break;
       case "makeGuess":
         await handleMakeGuess(ctx, msg);
+        break;
+      case "endTurn":
+        await handleEndTurn(ctx);
         break;
       case "forfeitGame":
         await handleForfeitGame(ctx);
