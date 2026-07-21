@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Analytics } from "@vercel/analytics/next";
 import { Fredoka, Geist, Geist_Mono } from "next/font/google";
 import { SiteChrome } from "@/components/SiteFooter";
 import "./globals.css";
@@ -63,6 +64,7 @@ export default function RootLayout({
           </header>
           <SiteChrome>{children}</SiteChrome>
         </div>
+        <Analytics />
       </body>
     </html>
   );
