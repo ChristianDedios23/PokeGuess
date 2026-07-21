@@ -10,6 +10,7 @@ import {
 } from "@/lib/sounds";
 
 interface ChatPanelProps {
+  roomCode: string;
   connectionId: string | null;
   selfDisplayName: string;
   selfConnectionId: string | null;
@@ -22,7 +23,44 @@ interface ChatPanelProps {
   connectionStatus?: "connected" | "connecting" | "error" | "disconnected";
 }
 
+// Cap persisted history so localStorage can't grow without bound over a long
+// match / many rematches. Older messages beyond this are dropped on save.
+const MAX_STORED_MESSAGES = 200;
+
+function chatHistoryKey(roomCode: string): string {
+  return `pokeguess_chat_${roomCode.toUpperCase()}`;
+}
+
+function loadChatHistory(roomCode: string): ChatMessage[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(chatHistoryKey(roomCode));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as ChatMessage[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveChatHistory(roomCode: string, messages: ChatMessage[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    const trimmed = messages.slice(-MAX_STORED_MESSAGES);
+    window.localStorage.setItem(chatHistoryKey(roomCode), JSON.stringify(trimmed));
+  } catch {
+    // Storage full / disabled (private mode); chat just stays in-memory.
+  }
+}
+
+/** Combine stored + live messages, de-duped by id, stored (older) first. */
+function mergeMessages(stored: ChatMessage[], live: ChatMessage[]): ChatMessage[] {
+  const seen = new Set(stored.map((m) => m.id));
+  return [...stored, ...live.filter((m) => !seen.has(m.id))];
+}
+
 export function ChatPanel({
+  roomCode,
   connectionId,
   selfDisplayName,
   selfConnectionId,
@@ -39,6 +77,7 @@ export function ChatPanel({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
+  const [restored, setRestored] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const lastPlayedSoundId = useRef<string | null>(null);
@@ -46,6 +85,22 @@ export function ChatPanel({
   useEffect(() => {
     setMuted(isChatSoundMuted());
   }, []);
+
+  // Restore persisted history on mount / room change. Runs before the
+  // incoming/sent effects so any live message that arrived first stays after
+  // the older stored history. Purely client-side — no server/Dynamo cost.
+  useEffect(() => {
+    const stored = loadChatHistory(roomCode);
+    setMessages((prev) => mergeMessages(stored, prev));
+    setRestored(true);
+  }, [roomCode]);
+
+  // Persist after the restore has run, so we never clobber saved history with
+  // the initial empty list.
+  useEffect(() => {
+    if (!restored) return;
+    saveChatHistory(roomCode, messages);
+  }, [restored, roomCode, messages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });

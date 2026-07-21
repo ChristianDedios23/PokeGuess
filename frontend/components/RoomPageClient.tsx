@@ -16,6 +16,7 @@ import {
   HiOutlineEllipsisVertical,
   HiOutlineHandRaised,
   HiOutlineMagnifyingGlass,
+  HiOutlineSpeakerWave,
 } from "react-icons/hi2";
 import { IoIosPaper } from "react-icons/io";
 import { LuPaintbrush } from "react-icons/lu";
@@ -31,9 +32,12 @@ import { RoomLobby } from "@/components/RoomLobby";
 import { ScoreBar } from "@/components/ScoreBar";
 import { SecretPokemonPanel, YourPokemonCard } from "@/components/SecretPokemonPanel";
 import { SecretRevealScreen } from "@/components/SecretRevealScreen";
+import { VolumeModal } from "@/components/VolumeModal";
 import type { ChatMessage, GameModifiers, GameRoom, PokemonGender, WsGameOver } from "@/lib/game";
 import { DEFAULT_MODIFIERS, FORFEIT_GRACE_MS, joinRoom } from "@/lib/game";
 import { getSession, saveSession, type PlayerSession } from "@/lib/session";
+import { playButtonClickSound, playTurnPingSound } from "@/lib/sounds";
+import { startMusic, stopMusic } from "@/lib/music";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useRoomSocket } from "@/lib/useRoomSocket";
 
@@ -89,6 +93,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const [hoveredPokemonId, setHoveredPokemonId] = useState<number | null>(null);
   const [hoveredGender, setHoveredGender] = useState<PokemonGender | null>(null);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const [volumeOpen, setVolumeOpen] = useState(false);
   const [selectedGuessId, setSelectedGuessId] = useState<number | null>(null);
   const [confirmingGuess, setConfirmingGuess] = useState(false);
   const [gameInfoPanel, setGameInfoPanel] = useState<"rules" | "howToPlay" | null>(null);
@@ -237,6 +242,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
 
   function handleEndTurn() {
     if (!connectionId) return;
+    playButtonClickSound();
     setError(null);
     try {
       send({ action: "endTurn" });
@@ -256,18 +262,48 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   }
 
   function handleSelectForGuess(pokemonId: number) {
+    playButtonClickSound();
     setSelectedGuessId((current) => (current === pokemonId ? null : pokemonId));
     setConfirmingGuess(false);
   }
 
   function handleSubmitGuess() {
     if (selectedGuessId === null) return;
+    playButtonClickSound();
     if (!confirmingGuess) {
       setConfirmingGuess(true);
       return;
     }
     handleGuess(selectedGuessId);
     setConfirmingGuess(false);
+  }
+
+  function handleOpenThemes() {
+    playButtonClickSound();
+    setGameInfoPanel(null);
+    setVolumeOpen(false);
+    setThemePickerOpen((open) => !open);
+  }
+
+  function handleOpenRules() {
+    playButtonClickSound();
+    setThemePickerOpen(false);
+    setVolumeOpen(false);
+    setGameInfoPanel("rules");
+  }
+
+  function handleOpenHowToPlay() {
+    playButtonClickSound();
+    setThemePickerOpen(false);
+    setVolumeOpen(false);
+    setGameInfoPanel("howToPlay");
+  }
+
+  function handleOpenVolume() {
+    playButtonClickSound();
+    setThemePickerOpen(false);
+    setGameInfoPanel(null);
+    setVolumeOpen((open) => !open);
   }
 
   function requestForfeit() {
@@ -320,8 +356,9 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   const isStructured = modifiers.playMode === "structured";
   const isFinalShowdown = modifiers.guessingRule === "final-showdown";
   const isMyTurn = !isStructured || room?.currentTurnPlayer === selfSlot;
-  // In structured play with opponent interaction off, your board locks while
-  // it isn't your turn so you can't cross Pokémon off during the opponent's turn.
+  // In structured play with opponent interaction off ("No" / "Locked" in the
+  // rules), your board becomes read-only while it isn't your turn: you can still
+  // hover tiles to read info, but can't cross Pokémon off or select a guess.
   const boardLocked =
     gameActive && isStructured && modifiers.opponentInteract === "no" && !isMyTurn;
   const turnsLeft =
@@ -332,9 +369,32 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
   useEffect(() => {
     if (!gameActive) {
       setThemePickerOpen(false);
+      setVolumeOpen(false);
       setMobileSheet(null);
     }
   }, [gameActive]);
+
+  // Shuffled lo-fi background music while a match is live. Kicks off here (a
+  // user gesture — ready/start — has already happened, satisfying autoplay).
+  useEffect(() => {
+    if (gameActive) startMusic();
+  }, [gameActive]);
+
+  // Always stop music when leaving the room page.
+  useEffect(() => {
+    return () => stopMusic();
+  }, []);
+
+  // Ping once each time the turn passes to this player (structured play only).
+  const wasMyTurnRef = useRef(false);
+  useEffect(() => {
+    const myTurnNow =
+      gameActive && isStructured && room?.currentTurnPlayer === selfSlot;
+    if (myTurnNow && !wasMyTurnRef.current) {
+      playTurnPingSound();
+    }
+    wasMyTurnRef.current = Boolean(myTurnNow);
+  }, [gameActive, isStructured, room?.currentTurnPlayer, selfSlot]);
   const ownSecretPokemonId = room?.players[selfSlot]?.secretPokemonId;
   const ownSecretGender = room?.players[selfSlot]?.secretGender ?? "genderless";
   const hasGuessed = Boolean(room?.players[selfSlot]?.guess);
@@ -514,6 +574,8 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
         guestName={room?.players.player2?.displayName ?? "Guest"}
       />
 
+      <VolumeModal open={volumeOpen} onClose={() => setVolumeOpen(false)} />
+
       {room?.status !== "WAITING" && (
       <header
         className={`z-20 gap-2 ${
@@ -530,18 +592,10 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
               <div className="justify-self-start">
                 <MobileHeaderMenu
                   themesOpen={themePickerOpen}
-                  onThemes={() => {
-                    setGameInfoPanel(null);
-                    setThemePickerOpen((open) => !open);
-                  }}
-                  onRules={() => {
-                    setThemePickerOpen(false);
-                    setGameInfoPanel("rules");
-                  }}
-                  onHowToPlay={() => {
-                    setThemePickerOpen(false);
-                    setGameInfoPanel("howToPlay");
-                  }}
+                  onThemes={handleOpenThemes}
+                  onRules={handleOpenRules}
+                  onHowToPlay={handleOpenHowToPlay}
+                  onVolume={handleOpenVolume}
                 />
               </div>
               <RoomCodeReveal
@@ -556,10 +610,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
               <div className="flex items-center gap-2 justify-self-start">
                 <button
                   type="button"
-                  onClick={() => {
-                    setGameInfoPanel(null);
-                    setThemePickerOpen((open) => !open);
-                  }}
+                  onClick={handleOpenThemes}
                   aria-expanded={themePickerOpen}
                   aria-haspopup="dialog"
                   className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
@@ -573,10 +624,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setThemePickerOpen(false);
-                    setGameInfoPanel("rules");
-                  }}
+                  onClick={handleOpenRules}
                   aria-expanded={gameInfoPanel === "rules"}
                   aria-haspopup="dialog"
                   className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
@@ -590,10 +638,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setThemePickerOpen(false);
-                    setGameInfoPanel("howToPlay");
-                  }}
+                  onClick={handleOpenHowToPlay}
                   aria-expanded={gameInfoPanel === "howToPlay"}
                   aria-haspopup="dialog"
                   className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
@@ -604,6 +649,20 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 >
                   <HiOutlineHandRaised className="size-3.5 shrink-0" aria-hidden="true" />
                   How to Play
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenVolume}
+                  aria-expanded={volumeOpen}
+                  aria-haspopup="dialog"
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
+                    volumeOpen
+                      ? "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
+                      : "border-zinc-300 bg-white/80 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  <HiOutlineSpeakerWave className="size-3.5 shrink-0" aria-hidden="true" />
+                  Volume
                 </button>
               </div>
               <RoomCodeReveal
@@ -755,7 +814,8 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 selfSlot={selfSlot}
                 board={room.board}
                 boardGenders={room.boardGenders ?? []}
-                disabled={!connectionId || hasGuessed || boardLocked}
+                disabled={!connectionId || hasGuessed}
+                readOnly={boardLocked}
                 selected={selectedGuessId}
                 onSelectForGuess={handleSelectForGuess}
                 onHoverPokemon={(pokemonId, gender) => {
@@ -791,6 +851,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
           <div className="order-2 h-36 w-full min-w-0 shrink-0 self-center lg:order-3 lg:h-[82.5%] lg:w-[250px] xl:w-[298px]">
             <ChatPanel
               className="h-full"
+              roomCode={roomCode}
               connectionId={connectionId}
               selfDisplayName={displayName}
               selfConnectionId={connectionId}
@@ -828,7 +889,8 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
                 selfSlot={selfSlot}
                 board={room.board}
                 boardGenders={room.boardGenders ?? []}
-                disabled={!connectionId || hasGuessed || boardLocked}
+                disabled={!connectionId || hasGuessed}
+                readOnly={boardLocked}
                 selected={selectedGuessId}
                 onSelectForGuess={handleSelectForGuess}
                 onHoverPokemon={(pokemonId, gender) => {
@@ -889,6 +951,7 @@ export function RoomPageClient({ roomCode }: RoomPageClientProps) {
             >
               <ChatPanel
                 className="h-full"
+                roomCode={roomCode}
                 connectionId={connectionId}
                 selfDisplayName={displayName}
                 selfConnectionId={connectionId}
@@ -1185,11 +1248,13 @@ function MobileHeaderMenu({
   onThemes,
   onRules,
   onHowToPlay,
+  onVolume,
 }: {
   themesOpen: boolean;
   onThemes: () => void;
   onRules: () => void;
   onHowToPlay: () => void;
+  onVolume: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -1272,6 +1337,18 @@ function MobileHeaderMenu({
           >
             <HiOutlineHandRaised className="size-4 shrink-0" aria-hidden="true" />
             How to Play
+          </button>
+          <button
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              onVolume();
+              setOpen(false);
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <HiOutlineSpeakerWave className="size-4 shrink-0" aria-hidden="true" />
+            Volume
           </button>
         </div>
       )}

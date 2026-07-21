@@ -34,6 +34,13 @@ interface GuessBoardProps {
   board: number[];
   boardGenders: PokemonGender[];
   disabled: boolean;
+  /**
+   * View-only board: the player can still hover tiles to read info, but can't
+   * cross Pokémon off or select one to guess. Unlike `disabled`, the board is
+   * not dimmed. Used when opponent board interaction is off and it's not the
+   * player's turn.
+   */
+  readOnly?: boolean;
   selected: number | null;
   onSelectForGuess: (pokemonId: number) => void;
   onHoverPokemon?: (pokemonId: number | null, gender: PokemonGender | null) => void;
@@ -99,6 +106,7 @@ function BoardTile({
   isSelected,
   isRuledOut,
   disabled,
+  readOnly,
   onToggleRuledOut,
   onHover,
   onSelectForGuess,
@@ -110,6 +118,7 @@ function BoardTile({
   isSelected: boolean;
   isRuledOut: boolean;
   disabled: boolean;
+  readOnly: boolean;
   onToggleRuledOut: (id: number) => void;
   onHover: (id: number | null, gender: PokemonGender | null) => void;
   onSelectForGuess: (event: MouseEvent, id: number) => void;
@@ -126,14 +135,14 @@ function BoardTile({
         tabIndex={disabled ? -1 : 0}
         onClick={() => {
           onHover(id, gender);
-          onToggleRuledOut(id);
+          if (!disabled && !readOnly) onToggleRuledOut(id);
         }}
         onMouseEnter={() => onHover(id, gender)}
         onMouseLeave={() => onHover(null, null)}
         onFocus={() => onHover(id, gender)}
         onBlur={() => onHover(null, null)}
         onKeyDown={(event) => {
-          if (!disabled && (event.key === "Enter" || event.key === " ")) {
+          if (!disabled && !readOnly && (event.key === "Enter" || event.key === " ")) {
             event.preventDefault();
             onToggleRuledOut(id);
           }
@@ -145,7 +154,7 @@ function BoardTile({
         }}
         className={`group relative flex origin-center items-center justify-center rounded-full bg-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_4px_rgba(0,0,0,0.25)] ring-1 ring-black/10 backdrop-blur-[1px] transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-safe:hover:-translate-y-1 motion-safe:hover:scale-110 motion-safe:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_10px_rgba(0,0,0,0.3)] motion-safe:active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 dark:bg-zinc-800/85 ${
           isSelected ? "pcbox-selected ring-4 ring-amber-400" : ""
-        } ${disabled ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+        } ${disabled ? "pointer-events-none opacity-50" : readOnly ? "cursor-default" : "cursor-pointer"}`}
       >
         {sprite ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -200,7 +209,7 @@ function BoardTile({
       >
         <button
           type="button"
-          disabled={disabled}
+          disabled={disabled || readOnly}
           onClick={(event) => onSelectForGuess(event, id)}
           aria-label={isSelected ? `${pokemon?.name ?? id} selected` : `Guess ${pokemon?.name ?? id}`}
           className="group/guess pointer-events-auto absolute -right-1.5 -bottom-1.5 z-10 flex h-8 w-8 items-center justify-center rounded-full"
@@ -226,6 +235,7 @@ export function GuessBoard({
   board,
   boardGenders,
   disabled,
+  readOnly = false,
   selected,
   onSelectForGuess,
   onHoverPokemon,
@@ -293,7 +303,7 @@ export function GuessBoard({
   const closeThemePicker = useCallback(() => onThemePickerOpenChange(false), [onThemePickerOpenChange]);
 
   function toggleRuledOut(id: number) {
-    if (disabled) return;
+    if (disabled || readOnly) return;
     setRuledOut((current) => {
       const next = new Set(current);
       if (next.has(id)) {
@@ -308,7 +318,7 @@ export function GuessBoard({
 
   function handleSelectForGuess(event: MouseEvent, id: number) {
     event.stopPropagation();
-    if (disabled) return;
+    if (disabled || readOnly) return;
     onSelectForGuess(id);
   }
 
@@ -383,6 +393,7 @@ export function GuessBoard({
                         isSelected={id === selected}
                         isRuledOut={ruledOut.has(id)}
                         disabled={disabled}
+                        readOnly={readOnly}
                         onToggleRuledOut={toggleRuledOut}
                         onHover={(hoveredId, hoveredGender) =>
                           onHoverPokemon?.(hoveredId, hoveredGender)
